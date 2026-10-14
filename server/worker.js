@@ -50,8 +50,34 @@ function inRange(iso) { const t = msk().date; return /^\d{4}-\d{2}-\d{2}$/.test(
 function isPast(iso, time) { const n = msk(); return iso < n.date || (iso === n.date && parseInt(time) <= n.h); }
 
 /* ---------- хранилище ---------- */
-async function getJ(env, k, def) { try { const v = await env.DB.get(k); return v ? JSON.parse(v) : def; } catch { return def; } }
-const putJ = (env, k, v, opt) => env.DB.put(k, JSON.stringify(v), opt);
+/* Хранилище: база D1 (привязка SQL) — изменения видны сразу везде.
+   Если D1 не подключена — используется KV (привязка DB), но там изменения расходятся до минуты. */
+let sqlReady = false;
+async function sqlInit(env) {
+  if (sqlReady) return;
+  await env.SQL.prepare('CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT, exp INTEGER)').run();
+  sqlReady = true;
+}
+const store = env => env.SQL ? {
+  async get(k) {
+    await sqlInit(env);
+    const r = await env.SQL.prepare('SELECT v, exp FROM kv WHERE k = ?').bind(k).first();
+    if (r) return r.exp && r.exp < Date.now() ? null : r.v;
+    if (env.DB && !k.startsWith('pend:') && !k.startsWith('seen:')) { // перенос старых данных из KV
+      const old = await env.DB.get(k).catch(() => null);
+      if (old != null) { await this.put(k, old); return old; }
+    }
+    return null;
+  },
+  async put(k, v, opt) {
+    await sqlInit(env);
+    const exp = opt && opt.expirationTtl ? Date.now() + opt.expirationTtl * 1000 : null;
+    await env.SQL.prepare('INSERT INTO kv (k, v, exp) VALUES (?, ?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, exp = excluded.exp').bind(k, v, exp).run();
+  },
+  async delete(k) { await sqlInit(env); await env.SQL.prepare('DELETE FROM kv WHERE k = ?').bind(k).run(); },
+} : env.DB;
+async function getJ(env, k, def) { try { const v = await store(env).get(k); return v ? JSON.parse(v) : def; } catch { return def; } }
+const putJ = (env, k, v, opt) => store(env).put(k, JSON.stringify(v), opt);
 async function getCfg(env) { const c = await getJ(env, 'cfg', {}); return { closed: !!c.closed, closedMsg: c.closedMsg || '', prices: c.prices || {}, blocked: c.blocked || {} }; }
 async function getBookings(env) {
   const b = await getJ(env, 'bookings', {}); const t = msk().date; let pruned = false;
@@ -173,9 +199,10 @@ async function slotsView(env, date) {
 async function listView(env, date) {
   const { b } = await getBookings(env); const day = b[date] || {}; const ords = await getOrders(env);
   const items = {};
-  for (const [n, o] of Object.entries(ords)) if (o.date === date && o.full) items[n] = { ...o.full, st: statusOf(o) };
-  for (const [t, o] of Object.entries(day)) if (!items[o.num]) items[o.num] = { ...o, st: statusOf(ords[o.num] || { date, time: t }) };
+  for (const [n, o] of Object.entries(ords)) if (o.date === date && o.full && !o.hidden) items[n] = { ...o.full, st: statusOf(o) };
+  for (const [t, o] of Object.entries(day)) if (!items[o.num] && !ords[o.num]?.hidden) items[o.num] = { ...o, st: statusOf(ords[o.num] || { date, time: t }) };
   const list = Object.values(items).sort((a, b2) => a.time.localeCompare(b2.time));
+  const finished = list.filter(o => o.st === 'issued' || o.st === 'cancelled').map(o => o.num);
   const text = list.length
     ? `<b>Записи · ${esc(dayName(date))}</b>\n\n` + list.map(o =>
         `<b>${o.time}</b> · ${ST_LABEL[o.st]} · ${esc(o.num)}\n${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`).join('\n\n')
@@ -189,7 +216,16 @@ async function listView(env, date) {
   const t0 = msk().date;
   kb.push([...(date > t0 ? [{ text: '‹ Пред. день', callback_data: 'ls:' + addDays(date, -1) }] : []), { text: 'След. день ›', callback_data: 'ls:' + addDays(date, 1) }]);
   kb.push([{ text: '‹ Меню', callback_data: 'menu' }]);
-  return { text, kb };
+  return { text, kb, finished };
+}
+
+/* закрытые (выданные/отменённые) заказы исчезают из списка, когда из него уходят */
+async function hideFinished(env, chat) {
+  const nums = await getJ(env, 'seen:' + chat, []); if (!nums.length) return;
+  const ords = await getOrders(env); let ch = false;
+  for (const n of nums) if (ords[n] && ['issued', 'cancelled'].includes(statusOf(ords[n]))) { ords[n].hidden = true; ch = true; }
+  if (ch) await putJ(env, 'orders', ords);
+  await store(env).delete('seen:' + chat);
 }
 
 /* действия с заказом: d — готов, g — выдан, x — отменить запись, u — отменить действие */
@@ -197,6 +233,7 @@ async function orderAction(env, act, ref) {
   const ords = await getOrders(env); let num = ref;
   if (/^\d{4}-\d{2}-\d{2}$/.test(ref.split(':')[0])) { const [d, h, m] = ref.split(':'); const { b } = await getBookings(env); num = b[d]?.[`${h}:${m}`]?.num || ''; }
   const o = ords[num]; if (!o) return { toast: 'Заказ не найден' };
+  if (o.hidden) return { toast: 'Заказ закрыт окончательно', o, num, gone: true };
   const cur = statusOf(o); o.hist = o.hist || [];
   const { b } = await getBookings(env);
   const free = () => { if (b[o.date]?.[o.time]?.num === num) { delete b[o.date][o.time]; if (!Object.keys(b[o.date]).length) delete b[o.date]; } };
@@ -249,7 +286,7 @@ async function onUpdate(env, u) {
     }
     if (!isAdm) return;
     const pend = await getJ(env, 'pend:' + chat, null);
-    if (text === '/cancel') { await env.DB.delete('pend:' + chat); return send(env, chat, 'Отменено.'); }
+    if (text === '/cancel') { await store(env).delete('pend:' + chat); return send(env, chat, 'Отменено.'); }
     if (pend && !text.startsWith('/')) {
       if (pend.k === 'price') {
         const raw = parseInt(text.replace(/\D/g, ''), 10);
@@ -257,13 +294,13 @@ async function onUpdate(env, u) {
         const v = Math.round(raw / 100) * 100; // сайт показывает цены с точностью до сотен
         const cfg = await getCfg(env); const [n] = CATALOG[pend.type].items[pend.i];
         cfg.prices[pend.type] = cfg.prices[pend.type] || {}; cfg.prices[pend.type][n] = v;
-        await putJ(env, 'cfg', cfg); await env.DB.delete('pend:' + chat);
+        await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
         await send(env, chat, `✅ «${esc(n)}» — теперь от <b>${rub(v)}</b>. На сайте обновится в течение минуты.`);
         const s = await servicesView(env, pend.type); return send(env, chat, s.text, s.kb);
       }
       if (pend.k === 'closemsg') {
         const cfg = await getCfg(env); cfg.closed = true; cfg.closedMsg = text.slice(0, 200);
-        await putJ(env, 'cfg', cfg); await env.DB.delete('pend:' + chat);
+        await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
         const v = await menu(env); return send(env, chat, '🔴 Запись закрыта.\n\n' + v.text, v.kb);
       }
     }
@@ -291,7 +328,8 @@ async function onUpdate(env, u) {
     const q = u.callback_query, chat = String(q.message.chat.id), mid = q.message.message_id, d = q.data || '';
     if (!adm.includes(chat)) return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, text: 'Нет доступа' });
     let toast = '';
-    const show = async v => edit(env, chat, mid, v.text, v.kb);
+    const show = async v => { if (v.finished) { if (v.finished.length) await putJ(env, 'seen:' + chat, v.finished, { expirationTtl: 86400 }); else await store(env).delete('seen:' + chat); } return edit(env, chat, mid, v.text, v.kb); };
+    if (!/:l$/.test(d)) await hideFinished(env, chat);
     const [cmd, a1, a2] = [d.split(':')[0], d.split(':')[1], d.split(':').slice(2).join(':')];
 
     if (cmd === 'menu') await show(await menu(env));
@@ -302,7 +340,7 @@ async function onUpdate(env, u) {
       await send(env, chat, '🔴 Запись закрыта. Если хотите, пришлите текст для сайта (например «Отпуск до 20 октября»). Иначе будет стандартный текст.');
     } else if (cmd === 'open') {
       const cfg = await getCfg(env); cfg.closed = false; cfg.closedMsg = ''; await putJ(env, 'cfg', cfg);
-      await env.DB.delete('pend:' + chat); toast = 'Запись открыта'; await show(await menu(env));
+      await store(env).delete('pend:' + chat); toast = 'Запись открыта'; await show(await menu(env));
     } else if (cmd === 'ls') await show(await listView(env, a1));
     else if (cmd === 'bd') await show({ text: '<b>Убрать / вернуть время</b>\n\nВыберите день:', kb: daysKb('bs:') });
     else if (cmd === 'bs') await show(await slotsView(env, a1));
@@ -327,7 +365,7 @@ async function onUpdate(env, u) {
     } else if (cmd === 'pr') {
       const T = CATALOG[a1]; const [n, p] = T.items[+a2]; const cfg = await getCfg(env);
       if (cfg.prices[a1]) { delete cfg.prices[a1][n]; if (!Object.keys(cfg.prices[a1]).length) delete cfg.prices[a1]; }
-      await putJ(env, 'cfg', cfg); await env.DB.delete('pend:' + chat);
+      await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
       await edit(env, chat, mid, `✅ «${esc(n)}» — снова от <b>${rub(p)}</b>.`);
     } else if (['d', 'g', 'x', 'u'].includes(cmd)) {
       const ref = d.slice(2).replace(/:l$/, ''); const fromList = d.endsWith(':l');
@@ -335,7 +373,7 @@ async function onUpdate(env, u) {
       if (r.o) {
         const st = statusOf(r.o);
         if (fromList) await show(await listView(env, r.o.date));
-        else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, ST_LINE[st] || ''), orderKb(r.num, st));
+        else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, ST_LINE[st] || ''), r.gone ? undefined : orderKb(r.num, st));
       }
     }
     return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, ...(toast ? { text: toast } : {}) });
@@ -416,7 +454,7 @@ export default {
       await tg(env, 'setChatMenuButton', { menu_button: { type: 'default' } });
       const me = await tg(env, 'getMe', {}); const name = me.result && me.result.username;
       const link = name ? `https://t.me/${name}?start=${encodeURIComponent(env.PASSWORD)}` : '';
-      const kv = env.DB ? 'KV подключено ✅' : 'KV не подключено ❌ (Settings → Bindings → KV, имя DB)';
+      const kv = env.SQL ? 'База D1 подключена ✅ (изменения видны сразу)' : env.DB ? 'KV подключено ✅ — для мгновенного обновления подключите D1 (привязка SQL)' : 'Хранилище не подключено ❌';
       return new Response(`<meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font:16px/1.5 system-ui;padding:24px;max-width:640px">
         <h2>${r.ok ? '✅ Бот подключён' : '❌ Ошибка: ' + esc(r.description || '')}</h2><p>${kv}</p>
         ${link ? `<p><b>Ссылка для владельца</b> — открыть в Telegram и нажать «Старт»:<br><a href="${link}">${link}</a></p>` : ''}

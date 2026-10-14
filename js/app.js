@@ -824,6 +824,7 @@ function applyState(st){
 }
 async function loadState(){
   if(!ORDER_API) return;
+  const now=Date.now(); if(now-(loadState.t||0)<1500) return; loadState.t=now;
   try{ const r=await fetch(api('/state'),{cache:'no-store'}); if(r.ok) applyState(await r.json()); }catch(e){}
   const nums=receipts.filter(x=>!x.demo).map(x=>x.num); if(nums.length){ await fetchStatus(nums); renderReceipts(); }
 }
@@ -845,8 +846,13 @@ async function postOrder(o){
     orderFailed(o,'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.');
   }catch(e){ orderFailed(o,'Нет связи с сервером. Попробуйте ещё раз или позвоните нам.'); }
 }
-loadState(); setInterval(()=>{ loadState(); if(!ORDER_API) renderReceipts(); },60000);
+loadState();
+/* обновление: каждые 15 секунд, пока вкладка открыта; сразу — при возврате на вкладку и при переходе между разделами */
+setInterval(()=>{ if(document.hidden) return; loadState(); if(!ORDER_API) renderReceipts(); },15000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadState(); });
+addEventListener('focus',()=>loadState());
+addEventListener('hashchange',()=>loadState());
+document.addEventListener('click',e=>{ if(e.target.closest('[data-go],[data-mode],[data-bstep],#types,#brands')) setTimeout(loadState,50); },true);
 
 /* ===== Telegram напрямую (если сервер не подключён) =====
    token — токен бота от @BotFather.
