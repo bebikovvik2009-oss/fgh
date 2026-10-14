@@ -64,10 +64,15 @@ async function getOrders(env) {
   return o;
 }
 function started(date, time) { const n = msk(); const [h, m] = String(time).split(':').map(Number); return date < n.date || (date === n.date && n.h * 60 + n.m >= h * 60 + (m || 0)); }
-function statusOf(o) { if (!o) return null; if (o.status === 'cancelled' || o.status === 'done') return o.status; return started(o.date, o.time) ? 'repair' : 'new'; }
-const ST_LABEL = { new: '🕓 Принят', repair: '🔧 В ремонте', done: '✅ Готов к выдаче', cancelled: '❌ Отменён' };
-async function setStatus(env, num, status) { const o = await getOrders(env); if (!o[num]) return false; o[num].status = status; await putJ(env, 'orders', o); return true; }
-const orderKb = o => [[{ text: '✅ Готов к выдаче', callback_data: `d:${o.date}:${o.time}` }], [{ text: '❌ Отменить запись', callback_data: `x:${o.date}:${o.time}` }]];
+const FINAL = ['cancelled', 'done', 'issued'];
+function statusOf(o) { if (!o) return null; if (FINAL.includes(o.status)) return o.status; return started(o.date, o.time) ? 'repair' : 'new'; }
+const ST_LABEL = { new: '🕓 Принят', repair: '🔧 В ремонте', done: '✅ Готов к выдаче', issued: '📦 Выдан', cancelled: '❌ Отменён' };
+const ST_LINE = { done: '✅ <b>Готов к выдаче</b>', issued: '📦 <b>Выдан</b> — заказ закрыт', cancelled: '❌ <b>Отменена</b> — время снова свободно' };
+function orderKb(num, st) {
+  if (st === 'done') return [[{ text: '📦 Выдан', callback_data: 'g:' + num }], [{ text: '↩️ Отменить действие', callback_data: 'u:' + num }]];
+  if (st === 'issued' || st === 'cancelled') return [[{ text: '↩️ Отменить действие', callback_data: 'u:' + num }]];
+  return [[{ text: '✅ Готов к выдаче', callback_data: 'd:' + num }], [{ text: '❌ Отменить запись', callback_data: 'x:' + num }]];
+}
 
 async function admins(env) {
   const a = await getJ(env, 'admins', []);
@@ -167,18 +172,49 @@ async function slotsView(env, date) {
 
 async function listView(env, date) {
   const { b } = await getBookings(env); const day = b[date] || {}; const ords = await getOrders(env);
-  const times = Object.keys(day).sort();
-  const text = times.length
-    ? `<b>Записи · ${esc(dayName(date))}</b>\n\n` + times.map(t => {
-        const o = day[t]; const st = statusOf(ords[o.num] || { date, time: t });
-        return `<b>${t}</b> · ${ST_LABEL[st]}\n${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`;
-      }).join('\n\n')
+  const items = {};
+  for (const [n, o] of Object.entries(ords)) if (o.date === date && o.full) items[n] = { ...o.full, st: statusOf(o) };
+  for (const [t, o] of Object.entries(day)) if (!items[o.num]) items[o.num] = { ...o, st: statusOf(ords[o.num] || { date, time: t }) };
+  const list = Object.values(items).sort((a, b2) => a.time.localeCompare(b2.time));
+  const text = list.length
+    ? `<b>Записи · ${esc(dayName(date))}</b>\n\n` + list.map(o =>
+        `<b>${o.time}</b> · ${ST_LABEL[o.st]} · ${esc(o.num)}\n${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`).join('\n\n')
     : `<b>${esc(dayName(date))}</b>\n\nЗаписей нет.`;
-  const kb = times.filter(t => ords[day[t].num]?.status !== 'done').map(t => [{ text: `✅ Готов ${t}`, callback_data: `d:${date}:${t}` }, { text: `❌ Отменить ${t}`, callback_data: `x:${date}:${t}` }]);
+  const kb = list.map(o => {
+    const n = o.num, t = o.time;
+    if (o.st === 'done') return [{ text: `📦 Выдан ${t}`, callback_data: `g:${n}:l` }, { text: `↩️ ${t}`, callback_data: `u:${n}:l` }];
+    if (o.st === 'issued' || o.st === 'cancelled') return [{ text: `↩️ Отменить действие ${t}`, callback_data: `u:${n}:l` }];
+    return [{ text: `✅ Готов ${t}`, callback_data: `d:${n}:l` }, { text: `❌ Отменить ${t}`, callback_data: `x:${n}:l` }];
+  });
   const t0 = msk().date;
   kb.push([...(date > t0 ? [{ text: '‹ Пред. день', callback_data: 'ls:' + addDays(date, -1) }] : []), { text: 'След. день ›', callback_data: 'ls:' + addDays(date, 1) }]);
   kb.push([{ text: '‹ Меню', callback_data: 'menu' }]);
   return { text, kb };
+}
+
+/* действия с заказом: d — готов, g — выдан, x — отменить запись, u — отменить действие */
+async function orderAction(env, act, ref) {
+  const ords = await getOrders(env); let num = ref;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ref.split(':')[0])) { const [d, h, m] = ref.split(':'); const { b } = await getBookings(env); num = b[d]?.[`${h}:${m}`]?.num || ''; }
+  const o = ords[num]; if (!o) return { toast: 'Заказ не найден' };
+  const cur = statusOf(o); o.hist = o.hist || [];
+  const { b } = await getBookings(env);
+  const free = () => { if (b[o.date]?.[o.time]?.num === num) { delete b[o.date][o.time]; if (!Object.keys(b[o.date]).length) delete b[o.date]; } };
+  let toast = '';
+  if (act === 'd') { if (FINAL.includes(cur)) return { toast: 'Статус уже изменён', o, num }; o.hist.push(o.status); o.status = 'done'; toast = `${num}: готов к выдаче`; }
+  else if (act === 'g') { if (cur !== 'done') return { toast: 'Сначала отметьте «Готов к выдаче»', o, num }; o.hist.push(o.status); o.status = 'issued'; toast = `${num}: выдан, заказ закрыт`; }
+  else if (act === 'x') { if (cur === 'cancelled' || cur === 'issued') return { toast: 'Нельзя отменить', o, num }; o.hist.push(o.status); o.status = 'cancelled'; free(); toast = `${num} отменён, время ${o.time} снова свободно`; }
+  else if (act === 'u') {
+    if (!o.hist.length) return { toast: 'Нечего отменять', o, num };
+    if (o.status === 'cancelled' && o.full) {
+      const busy = b[o.date]?.[o.time]; const cfg = await getCfg(env); const bl = cfg.blocked[o.date];
+      if ((busy && busy.num !== num) || bl === 'all' || (Array.isArray(bl) && bl.includes(o.time))) return { toast: `Время ${o.time} уже занято — восстановить запись нельзя`, o, num };
+      b[o.date] = b[o.date] || {}; b[o.date][o.time] = o.full;
+    }
+    o.status = o.hist.pop(); toast = `${num}: действие отменено`;
+  }
+  ords[num] = o; await putJ(env, 'orders', ords); await putJ(env, 'bookings', b);
+  return { toast, o, num, changed: true };
 }
 
 function typesView() {
@@ -293,23 +329,14 @@ async function onUpdate(env, u) {
       if (cfg.prices[a1]) { delete cfg.prices[a1][n]; if (!Object.keys(cfg.prices[a1]).length) delete cfg.prices[a1]; }
       await putJ(env, 'cfg', cfg); await env.DB.delete('pend:' + chat);
       await edit(env, chat, mid, `✅ «${esc(n)}» — снова от <b>${rub(p)}</b>.`);
-    } else if (cmd === 'x') {
-      const { b } = await getBookings(env); const o = b[a1]?.[a2];
-      if (o) {
-        delete b[a1][a2]; if (!Object.keys(b[a1]).length) delete b[a1]; await putJ(env, 'bookings', b);
-        await setStatus(env, o.num, 'cancelled');
-        toast = `Запись ${o.num} отменена, время ${a2} снова свободно`;
-        if ((q.message.text || '').startsWith('🧾')) await edit(env, chat, mid, orderText(o, '❌ <b>Отменена</b> — время снова свободно'));
-        else await show(await listView(env, a1));
-      } else toast = 'Запись уже отменена';
-    } else if (cmd === 'd') {
-      const { b } = await getBookings(env); const o = b[a1]?.[a2];
-      if (o) {
-        await setStatus(env, o.num, 'done');
-        toast = `${o.num}: готов к выдаче`;
-        if ((q.message.text || '').startsWith('🧾')) await edit(env, chat, mid, orderText(o, '✅ <b>Готов к выдаче</b> — заказ завершён'));
-        else await show(await listView(env, a1));
-      } else toast = 'Запись не найдена (возможно, отменена)';
+    } else if (['d', 'g', 'x', 'u'].includes(cmd)) {
+      const ref = d.slice(2).replace(/:l$/, ''); const fromList = d.endsWith(':l');
+      const r = await orderAction(env, cmd, ref); toast = r.toast;
+      if (r.o) {
+        const st = statusOf(r.o);
+        if (fromList) await show(await listView(env, r.o.date));
+        else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, ST_LINE[st] || ''), orderKb(r.num, st));
+      }
     }
     return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, ...(toast ? { text: toast } : {}) });
   }
@@ -367,10 +394,10 @@ export default {
       b[clean.date] = b[clean.date] || {}; b[clean.date][clean.time] = clean;
       await putJ(env, 'bookings', b);
       const ords = await getOrders(env);
-      ords[clean.num] = { status: 'new', date: clean.date, time: clean.time, device: clean.device, services: clean.services.map(x => x.name).join(', ') };
+      ords[clean.num] = { status: 'new', hist: [], date: clean.date, time: clean.time, device: clean.device, services: clean.services.map(x => x.name).join(', '), full: clean };
       await putJ(env, 'orders', ords);
       const list = await admins(env);
-      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), orderKb(clean))));
+      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), orderKb(clean.num, 'new'))));
       if (ctx && ctx.waitUntil) ctx.waitUntil(notify); else await notify;
       return json({ ok: true });
     }

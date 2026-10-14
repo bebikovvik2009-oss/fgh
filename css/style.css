@@ -1235,3 +1235,11 @@ form.contact .send{height:54px;width:54px}
 .toast[hidden]{display:none}
 @media (min-width:901px){.toast{bottom:32px}}
 .times-c .err-msg,#sfDates .err-msg{grid-column:1/-1}
+
+.pill.closed{background:rgba(255,255,255,.07);color:var(--fg-3)}
+.rc.rc-closed{filter:grayscale(1);opacity:.55}
+.rc.rc-cancel{opacity:.8}
+.st-closed{display:flex;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--fg-2)}
+.st-closed .ico{width:22px;height:22px;flex:none}
+.st-closed div{display:flex;flex-direction:column;gap:2px}.st-closed b{color:var(--fg);font-size:17px}.st-closed span{font-size:14px}
+.steps.is-closed{filter:grayscale(1);opacity:.6}
