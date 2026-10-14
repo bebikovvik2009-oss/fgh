@@ -353,16 +353,20 @@ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${Str
 const fromIso=s=>{const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d);};
 const human=s=>{const d=fromIso(s); return d.toLocaleDateString('ru-RU',{weekday:'short',day:'numeric',month:'long'});};
 const booked=new Set();
+/* общее состояние с сервера: занятое время, закрытие, цены */
+var SITE={closed:false,closedMsg:'',busy:{}};
+/* время сайта — Санкт-Петербург (МСК) */
+function spbNow(){ try{ return new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Moscow'})); }catch(e){ return new Date(); } }
 function slotsFor(dateIso){
   const d=fromIso(dateIso); if(isNaN(d)) return null;
-  const today=new Date(); today.setHours(0,0,0,0);
+  const today=spbNow(); today.setHours(0,0,0,0);
   const diff=Math.round((d-today)/864e5); if(diff<0||diff>30) return null;
   const all=['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00'];
-  let h=0; for(const c of dateIso) h=(h*31+c.charCodeAt(0))%9973;
-  const nowH=new Date().getHours();
-  return all.filter((t,i)=>!((h>>i)&1&&i%3===0) && !booked.has(dateIso+' '+t) && !(diff===0&&parseInt(t)<=nowH));
+  if(SITE.closed) return [];
+  const nowH=spbNow().getHours(); const busy=SITE.busy[dateIso]||[];
+  return all.filter(t=>!busy.includes(t) && !booked.has(dateIso+' '+t) && !(diff===0&&parseInt(t)<=nowH));
 }
-function nextDays(n=7){ const out=[]; const d=new Date(); for(let i=0;i<n;i++){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i); out.push(iso(x)); } return out; }
+function nextDays(n=7){ const out=[]; const d=spbNow(); for(let i=0;i<n;i++){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()+i); out.push(iso(x)); } return out; }
 const dayLabel=s=>{const i=nextDays(2).indexOf(s); return i===0?'Сегодня':i===1?'Завтра':(()=>{const d=fromIso(s);return `${WD[d.getDay()]}, ${d.getDate()} ${d.toLocaleDateString('ru-RU',{month:'short'}).replace('.','')}`;})();};
 
 
@@ -469,6 +473,7 @@ function mergeServices(a,b){ const seen=new Set(); return [...a,...b].filter(x=>
 function diagService(){ return {name:'Бесплатная диагностика',category:'—',range:{lo:0,hi:0},price:'Бесплатно',time:'от 15 минут',warranty:'—',includes:'Точная причина и цена до начала ремонта'}; }
 
 function bookRepair({date,time,name,phone,service}){
+  if(SITE.closed) throw new Error(SITE.closedMsg||'Запись временно закрыта');
   const sl=slotsFor(date); if(!sl) throw new Error('Дата должна быть в ближайшие 30 дней в формате ГГГГ-ММ-ДД');
   if(!sl.includes(time)) throw new Error('Время '+time+' занято или недоступно. Свободно: '+sl.join(', '));
   name=String(name||'').trim(); if(!name) throw new Error('Нужно имя клиента');
@@ -626,9 +631,10 @@ function localReply(text,act){
     if(!dateOnly&&!topical){ addMsg('bot','Я отвечаю только на вопросы о ремонте техники и записи.'); return; }
   }
   if(act?.k==='date'||(['date','time'].includes(L.stage)&&/(сегодня|завтра|\d{1,2}[./]\d{1,2})/.test(t))){
-    let d=act?.v; if(!d){ const days=nextDays(31); if(/сегодня/.test(t)) d=days[0]; else if(/завтра/.test(t)) d=days[1]; else { const m=t.match(/(\d{1,2})[./](\d{1,2})/); if(m){ const y=new Date().getFullYear(); d=`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; } } }
+    let d=act?.v; if(!d){ const days=nextDays(31); if(/сегодня/.test(t)) d=days[0]; else if(/завтра/.test(t)) d=days[1]; else { const m=t.match(/(\d{1,2})[./](\d{1,2})/); if(m){ const y=spbNow().getFullYear(); d=`${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; } } }
     const sl=slotsFor(d||'');
     if(!sl){ addMsg('bot','Такой даты нет. Выберите день:'); setQR(dateChips()); return; }
+    if(SITE.closed){ addMsg('bot',SITE.closedMsg||'Запись временно закрыта.'); return; }
     if(!sl.length){ addMsg('bot',`На ${human(d)} мест нет. Выберите другой день:`); setQR(dateChips()); return; }
     bk.date=d; renderSummary(); L.stage='time';
     addMsg('bot',`Время на ${human(d)}:`);
@@ -725,10 +731,11 @@ function renderSelf(){
   const ds=nextDays(7).filter(d=>slotsFor(d)?.length);
   if(!sf.date||!slotsFor(sf.date)?.length) sf.date=ds[0]||null;
   $('#sfDates').innerHTML=ds.map(d=>`<button type="button" class="chip" data-sd="${d}" aria-pressed="${!sf.other&&d===sf.date}">${dayLabel(d)}</button>`).join('')+`<button type="button" class="chip ic" data-sd="other" aria-pressed="${sf.other}">${ico('cal')}Другая дата</button>`;
+  if(SITE.closed) $('#sfDates').innerHTML='<span class="err-msg">—</span>';
   const inp=$('#sfDate'); const all=nextDays(31); inp.min=all[0]; inp.max=all[30]; inp.hidden=!sf.other; if(sf.other&&!inp.value) inp.value=sf.date||all[1];
   const sl=sf.date?slotsFor(sf.date)||[]:[];
   if(!sl.includes(sf.time)) sf.time=null;
-  $('#sfTimes').innerHTML=sl.length?sl.map(t=>`<button type="button" class="chip" data-stime="${t}" aria-pressed="${t===sf.time}">${t}</button>`).join(''):'<span class="err-msg">На этот день мест нет</span>';
+  $('#sfTimes').innerHTML=sl.length?sl.map(t=>`<button type="button" class="chip" data-stime="${t}" aria-pressed="${t===sf.time}">${t}</button>`).join(''):`<span class="err-msg">${SITE.closed?'Запись временно закрыта':'На этот день мест нет'}</span>`;
   bk.date=sf.date; bk.time=sf.time; renderSummary();
 }
 $('#sfDates').addEventListener('click',e=>{const b=e.target.closest('[data-sd]'); if(!b)return; if(b.dataset.sd==='other'){ sf.other=true; } else { sf.other=false; sf.date=b.dataset.sd; } renderSelf();});
@@ -779,7 +786,48 @@ try{ receipts=JSON.parse(localStorage.getItem(RC_KEY)||'[]')||[]; }catch(e){ rec
 receipts.forEach(x=>{ if(!demo[x.num]) demo[x.num]=[x.device,x.services.map(s=>s.name).join(', ')||'Диагностика',0]; });
 function saveRc(){ try{ localStorage.setItem(RC_KEY,JSON.stringify(receipts.filter(x=>!x.demo))); }catch(e){} }
 
-/* ===== Telegram: каждая новая квитанция приходит владельцу =====
+/* ===== сервер сайта (Cloudflare Worker из папки server) =====
+   Впишите адрес сервера — тогда: занятое время общее для всех, записи идут в Telegram через сервер,
+   а владелец управляет сайтом из бота (закрыть запись, цены, убрать время). */
+const ORDER_API='';
+const api=p=>ORDER_API.replace(/\/$/,'')+p;
+const BASE_PRICES=Object.fromEntries(Object.entries(CATALOG).map(([t,T])=>[t,Object.fromEntries(Object.values(T.cats).flatMap(c=>c.items.map(i=>[i[0],i[1]])))]));
+function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(showToast.t); showToast.t=setTimeout(()=>t.hidden=true,6000); }
+function applyState(st){
+  SITE.closed=!!st.closed; SITE.closedMsg=st.closedMsg||''; SITE.busy=st.busy||{};
+  const pr=st.prices||{};
+  for(const [t,T] of Object.entries(CATALOG)) for(const c of Object.values(T.cats)) for(const it of c.items){ const v=pr[t]?.[it[0]]; it[1]=v!=null?+v:BASE_PRICES[t][it[0]]; }
+  const b=$('#closedBanner'); b.hidden=!SITE.closed; b.querySelector('span').textContent=SITE.closedMsg;
+  try{ paintOpen(); }catch(e){}
+  try{ renderDishes(); }catch(e){}
+  try{ if(!$('#selfPane').hidden&&!$('#selfForm').hidden) renderSelf(); renderSummary(); }catch(e){}
+}
+async function loadState(){
+  if(!ORDER_API) return;
+  try{ const r=await fetch(api('/state'),{cache:'no-store'}); if(r.ok) applyState(await r.json()); }catch(e){}
+}
+function orderFailed(o,msg){
+  receipts=receipts.filter(x=>x.num!==o.num); saveRc(); renderReceipts();
+  showToast(msg);
+  try{ if(!$('#selfDone').hidden){ resetSelf(); $('#sfErr').textContent=msg; $('#sfErr').hidden=false; } }catch(e){}
+  try{ if(typeof L!=='undefined'&&L.stage==='done'){ L.stage='date'; bk.order=null; addMsg('bot',msg); if(!SITE.closed) setQR(dateChips()); } }catch(e){}
+}
+async function postOrder(o){
+  let prob=''; try{ prob=problemText()||''; }catch(err){}
+  const body={...o, problem:o.services.some(x=>x.name===prob)?'':prob};
+  try{
+    const r=await fetch(api('/order'),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok) return;
+    if(j.error==='closed'){ applyState({...SITE,closed:true,closedMsg:j.closedMsg,prices:{}}); orderFailed(o,j.closedMsg||'Запись временно закрыта.'); loadState(); return; }
+    if(j.error==='busy'){ (SITE.busy[o.date]=SITE.busy[o.date]||[]).push(o.time); orderFailed(o,`Время ${o.time} только что заняли. Выберите, пожалуйста, другое.`); loadState(); return; }
+    orderFailed(o,'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.');
+  }catch(e){ orderFailed(o,'Нет связи с сервером. Попробуйте ещё раз или позвоните нам.'); }
+}
+loadState(); setInterval(loadState,60000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadState(); });
+
+/* ===== Telegram напрямую (если сервер не подключён) =====
    token — токен бота от @BotFather.
    chat  — ID получателя: написать @userinfobot в Telegram, он ответит числом.
    Несколько получателей — через запятую: chat:'111,222'.
@@ -793,23 +841,27 @@ function sendToTelegram(o){
   const d=String(o.phone).replace(/\D/g,''); const t=d.length===10?'7'+d:d.replace(/^8/,'7');
   const phone=t.length===11?`+${t[0]} ${t.slice(1,4)} ${t.slice(4,7)}-${t.slice(7,9)}-${t.slice(9)}`:e(o.phone);
   let prob=''; try{ prob=problemText()||''; }catch(err){}
+  const rr=(lo,hi)=>lo===hi?rub(lo):`${Number(lo).toLocaleString('ru-RU')}–${rub(hi)}`;
+  const day=human(o.date); const Day=day.charAt(0).toUpperCase()+day.slice(1);
   const lines=[
-    `🧾 <b>Новая запись ${e(o.num)}</b>`, ``,
-    `📅 ${e(human(o.date))}, ${e(o.time)}`,
+    `🧾 <b>Новая запись · ${e(o.num)}</b>`,
+    `📅 <b>${e(Day)} · ${e(o.time)}</b>`,
+    ``,
     `👤 ${e(o.name)}`,
     `📞 ${phone}`,
-    `📲 ${o.contact==='tg'?`<b>Написать клиенту в Telegram:</b> ${e(o.tg||'юзернейм не указан')}`:'<b>Позвонить клиенту</b>'}`,
+    o.contact==='tg'?`✈️ Связь: <b>Telegram ${e(o.tg||'')}</b>`:`☎️ Связь: <b>позвонить</b>`,
+    ``,
     `📱 ${e(o.device)}`,
-    o.services.length?`🔧 ${o.services.map(x=>`${e(x.name)} — ${rub(x.lo)}–${rub(x.hi)}`).join('\n      ')}`:`🔧 Диагностика`,
-    prob&&!o.services.some(x=>x.name===prob)?`💬 ${e(prob)}`:'',
-    o.services.length?`💰 Итого: ${rub(tot.lo)}–${rub(tot.hi)}`:''
-  ].filter((l,i)=>l!==''||i===1);
+    ...(o.services.length?o.services.map(x=>`🔧 ${e(x.name)} · ${rr(x.lo,x.hi)}`):[`🔧 Бесплатная диагностика`]),
+    prob&&!o.services.some(x=>x.name===prob)?`💬 ${e(prob)}`:null,
+    o.services.length>1||o.services.length&&prob?`💰 <b>Итого: ${rr(tot.lo,tot.hi)}</b>`:null
+  ].filter(l=>l!==null);
   String(TG.chat).split(',').map(x=>x.trim()).filter(Boolean).forEach(chat=>{
     try{ fetch(`https://api.telegram.org/bot${TG.token}/sendMessage`,{method:'POST',mode:'no-cors',keepalive:true,
       body:new URLSearchParams({chat_id:chat,text:lines.join('\n'),parse_mode:'HTML',disable_web_page_preview:'true'})}).catch(()=>{}); }catch(err){}
   });
 }
-function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); if(!o.demo) sendToTelegram(o); }
+function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); if(!o.demo){ if(ORDER_API) postOrder(o); else sendToTelegram(o); } }
 const maskPhone=p=>{ const d=String(p).replace(/\D/g,''); return d.length>=10?`+7 ••• •••-${d.slice(-4,-2)}-${d.slice(-2)}`:p; };
 function rcCard(x){
   const st=demo[x.num]?.[2]??0, tot=x.services.reduce((a,s)=>({lo:a.lo+s.lo,hi:a.hi+s.hi}),{lo:0,hi:0});
@@ -891,7 +943,7 @@ function openStatus(){
   const mins=h*60+m, open=mins>=600&&mins<1260;
   return open?{open,st:'Открыто',t:'до 21:00'}:{open,st:'Закрыто',t:'откроемся в 10:00'};
 }
-function paintOpen(){ const o=openStatus(); document.querySelectorAll('#openNow,[data-open-now]').forEach(el=>{ el.classList.toggle('closed',!o.open); el.querySelector('.on-st').textContent=o.st; el.querySelector('.on-t').textContent=o.t; }); }
+function paintOpen(){ const o=SITE.closed?{open:false,st:'Запись закрыта',t:'временно'}:openStatus(); document.querySelectorAll('#openNow,[data-open-now]').forEach(el=>{ el.classList.toggle('closed',!o.open); el.querySelector('.on-st').textContent=o.st; el.querySelector('.on-t').textContent=o.t; }); }
 setInterval(paintOpen,60000);
 /* копирование адреса */
 let toastT; function toast(t){ let el=document.querySelector('.toast'); if(!el){ el=document.createElement('div'); el.className='toast'; el.setAttribute('role','status'); document.body.append(el); } el.textContent=t; el.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('on'),1800); }
