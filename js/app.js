@@ -789,7 +789,7 @@ function saveRc(){ try{ localStorage.setItem(RC_KEY,JSON.stringify(receipts.filt
 /* ===== сервер сайта (Cloudflare Worker из папки server) =====
    Впишите адрес сервера — тогда: занятое время общее для всех, записи идут в Telegram через сервер,
    а владелец управляет сайтом из бота (закрыть запись, цены, убрать время). */
-const ORDER_API='';
+const ORDER_API='https://geza.bebikovvik2009.workers.dev';
 const api=p=>ORDER_API.replace(/\/$/,'')+p;
 const BASE_PRICES=Object.fromEntries(Object.entries(CATALOG).map(([t,T])=>[t,Object.fromEntries(Object.values(T.cats).flatMap(c=>c.items.map(i=>[i[0],i[1]])))]));
 function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(showToast.t); showToast.t=setTimeout(()=>t.hidden=true,6000); }
@@ -832,7 +832,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadStat
    chat  — ID получателя: написать @userinfobot в Telegram, он ответит числом.
    Несколько получателей — через запятую: chat:'111,222'.
    Получатель должен один раз нажать «Старт» у бота, иначе бот не сможет ему писать. */
-const TG={token:'8986598939:AAFY1g-fXvnIun_2yfNfYsQcBpgGT8Y64W0', chat:'7573906909'};
+const TG={token:'', chat:''};
 function sendToTelegram(o){
   if(!TG.token||!TG.chat) return;
   const e=t=>String(t??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
