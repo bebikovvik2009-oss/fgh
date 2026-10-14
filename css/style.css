@@ -1219,3 +1219,5 @@ form.contact .send{height:54px;width:54px}
 .ct-via .chip{height:32px;padding:0 12px;font-size:13.5px}
 .ct-via .chip .ico{width:15px;height:15px}
 .via-note{display:block;color:var(--fg-3);font-size:13.5px}
+
+.ct-tg{height:50px;margin-top:8px;border-radius:14px;background:var(--bg-2)}

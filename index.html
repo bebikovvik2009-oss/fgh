@@ -259,6 +259,7 @@
               <input class="input" id="ctName" autocomplete="name" placeholder="Имя" aria-label="Имя" maxlength="40">
               <div class="ct-phone"><span>+7</span><input class="input" id="ctPhone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="900 000 00 00" aria-label="Телефон"></div>
             </div>
+            <input class="input ct-tg" id="ctTg" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="@юзернейм в Telegram" aria-label="Юзернейм в Telegram" maxlength="33" hidden>
             <p class="err-msg" id="ctErr" hidden></p>
           </div>
           <button class="btn primary send" type="submit" aria-label="Отправить"><svg class="ico"><use href="#i-send"/></svg></button>
@@ -273,6 +274,7 @@
               <div class="field"><label class="lbl" for="sfPhone">Телефон</label><input class="input" id="sfPhone" type="tel" autocomplete="tel" placeholder="+7 900 000-00-00"></div>
             </div>
             <div class="field"><span class="lbl"><svg class="ico"><use href="#i-phone"/></svg>Как связаться по заказу</span><div class="chips" role="group" aria-label="Как связаться по заказу"><button type="button" class="chip ic" data-via="call" aria-pressed="true"><svg class="ico"><use href="#i-phone"/></svg>Позвонить</button><button type="button" class="chip ic" data-via="tg" aria-pressed="false"><svg class="ico"><use href="#i-send"/></svg>Telegram</button></div></div>
+            <div class="field" id="sfTgWrap" hidden><label class="lbl" for="sfTg">Юзернейм в Telegram</label><input class="input" id="sfTg" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="@username" maxlength="33"></div>
             <p class="err-msg" id="sfErr" hidden></p>
             <button class="btn primary" type="submit" style="align-self:flex-start"><svg class="ico"><use href="#i-check"/></svg>Записаться</button>
           </form>
