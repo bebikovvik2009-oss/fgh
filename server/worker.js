@@ -58,6 +58,17 @@ async function getBookings(env) {
   for (const d of Object.keys(b)) if (d < addDays(t, -2)) { delete b[d]; pruned = true; }
   return { b, pruned };
 }
+async function getOrders(env) {
+  const o = await getJ(env, 'orders', {}); const lim = addDays(msk().date, -90);
+  for (const k of Object.keys(o)) if ((o[k].date || '') < lim) delete o[k];
+  return o;
+}
+function started(date, time) { const n = msk(); const [h, m] = String(time).split(':').map(Number); return date < n.date || (date === n.date && n.h * 60 + n.m >= h * 60 + (m || 0)); }
+function statusOf(o) { if (!o) return null; if (o.status === 'cancelled' || o.status === 'done') return o.status; return started(o.date, o.time) ? 'repair' : 'new'; }
+const ST_LABEL = { new: '🕓 Принят', repair: '🔧 В ремонте', done: '✅ Готов к выдаче', cancelled: '❌ Отменён' };
+async function setStatus(env, num, status) { const o = await getOrders(env); if (!o[num]) return false; o[num].status = status; await putJ(env, 'orders', o); return true; }
+const orderKb = o => [[{ text: '✅ Готов к выдаче', callback_data: `d:${o.date}:${o.time}` }], [{ text: '❌ Отменить запись', callback_data: `x:${o.date}:${o.time}` }]];
+
 async function admins(env) {
   const a = await getJ(env, 'admins', []);
   if (env.OWNER_ID) String(env.OWNER_ID).split(',').map(x => x.trim()).filter(Boolean).forEach(x => { if (!a.includes(x)) a.push(x); });
@@ -70,6 +81,9 @@ function tg(env, method, body) {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   }).then(r => r.json()).catch(e => ({ ok: false, description: String(e) }));
 }
+const MENU_BTN = '📋 Меню';
+const replyKb = { keyboard: [[{ text: MENU_BTN }]], resize_keyboard: true, is_persistent: true };
+const sendKb = (env, chat, text) => tg(env, 'sendMessage', { chat_id: chat, text, parse_mode: 'HTML', reply_markup: replyKb });
 const send = (env, chat, text, kb) => tg(env, 'sendMessage', { chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(kb ? { reply_markup: { inline_keyboard: kb } } : {}) });
 const edit = (env, chat, mid, text, kb) => tg(env, 'editMessageText', { chat_id: chat, message_id: mid, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(kb ? { reply_markup: { inline_keyboard: kb } } : {}) });
 async function secret(env) {
@@ -152,15 +166,15 @@ async function slotsView(env, date) {
 }
 
 async function listView(env, date) {
-  const { b } = await getBookings(env); const day = b[date] || {};
+  const { b } = await getBookings(env); const day = b[date] || {}; const ords = await getOrders(env);
   const times = Object.keys(day).sort();
   const text = times.length
     ? `<b>Записи · ${esc(dayName(date))}</b>\n\n` + times.map(t => {
-        const o = day[t];
-        return `<b>${t}</b> · ${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`;
+        const o = day[t]; const st = statusOf(ords[o.num] || { date, time: t });
+        return `<b>${t}</b> · ${ST_LABEL[st]}\n${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`;
       }).join('\n\n')
     : `<b>${esc(dayName(date))}</b>\n\nЗаписей нет.`;
-  const kb = times.map(t => [{ text: `❌ Отменить ${t} · ${day[t].name}`.slice(0, 60), callback_data: `x:${date}:${t}` }]);
+  const kb = times.filter(t => ords[day[t].num]?.status !== 'done').map(t => [{ text: `✅ Готов ${t}`, callback_data: `d:${date}:${t}` }, { text: `❌ Отменить ${t}`, callback_data: `x:${date}:${t}` }]);
   const t0 = msk().date;
   kb.push([...(date > t0 ? [{ text: '‹ Пред. день', callback_data: 'ls:' + addDays(date, -1) }] : []), { text: 'След. день ›', callback_data: 'ls:' + addDays(date, 1) }]);
   kb.push([{ text: '‹ Меню', callback_data: 'menu' }]);
@@ -190,10 +204,12 @@ async function onUpdate(env, u) {
       const pass = text.split(/\s+/)[1] || '';
       if (!isAdm && env.PASSWORD && pass === env.PASSWORD) {
         const a = await getJ(env, 'admins', []); if (!a.includes(chat)) a.push(chat); await putJ(env, 'admins', a);
-        await send(env, chat, '✅ Готово! Сюда будут приходить новые записи с сайта, а здесь можно управлять сайтом.');
+        await sendKb(env, chat, '✅ Готово! Сюда будут приходить новые записи с сайта. Кнопка «📋 Меню» внизу — управление сайтом.');
         const v = await menu(env); return send(env, chat, v.text, v.kb);
       }
       if (!isAdm) return send(env, chat, 'Это служебный бот сервиса GEZA SERVICE.');
+      await sendKb(env, chat, 'Кнопка «📋 Меню» внизу — управление сайтом.');
+      const v0 = await menu(env); return send(env, chat, v0.text, v0.kb);
     }
     if (!isAdm) return;
     const pend = await getJ(env, 'pend:' + chat, null);
@@ -281,10 +297,19 @@ async function onUpdate(env, u) {
       const { b } = await getBookings(env); const o = b[a1]?.[a2];
       if (o) {
         delete b[a1][a2]; if (!Object.keys(b[a1]).length) delete b[a1]; await putJ(env, 'bookings', b);
+        await setStatus(env, o.num, 'cancelled');
         toast = `Запись ${o.num} отменена, время ${a2} снова свободно`;
         if ((q.message.text || '').startsWith('🧾')) await edit(env, chat, mid, orderText(o, '❌ <b>Отменена</b> — время снова свободно'));
         else await show(await listView(env, a1));
       } else toast = 'Запись уже отменена';
+    } else if (cmd === 'd') {
+      const { b } = await getBookings(env); const o = b[a1]?.[a2];
+      if (o) {
+        await setStatus(env, o.num, 'done');
+        toast = `${o.num}: готов к выдаче`;
+        if ((q.message.text || '').startsWith('🧾')) await edit(env, chat, mid, orderText(o, '✅ <b>Готов к выдаче</b> — заказ завершён'));
+        else await show(await listView(env, a1));
+      } else toast = 'Запись не найдена (возможно, отменена)';
     }
     return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, ...(toast ? { text: toast } : {}) });
   }
@@ -314,6 +339,13 @@ export default {
       return json({ closed: cfg.closed, closedMsg: cfg.closed ? (cfg.closedMsg || DEFAULT_CLOSED) : '', prices: cfg.prices, busy, today: t });
     }
 
+    if (url.pathname === '/status' && req.method === 'GET') {
+      const nums = String(url.searchParams.get('n') || '').toUpperCase().split(',').map(x => x.trim()).filter(x => /^RM-\d{4}$/.test(x)).slice(0, 30);
+      const ords = await getOrders(env); const out = {};
+      for (const n of nums) if (ords[n]) out[n] = { s: statusOf(ords[n]), date: ords[n].date, time: ords[n].time, device: ords[n].device, services: ords[n].services };
+      return json(out);
+    }
+
     if (url.pathname === '/order' && req.method === 'POST') {
       if (limited(req.headers.get('CF-Connecting-IP') || 'x')) return json({ ok: false, error: 'rate' }, 429);
       const o = await req.json().catch(() => null);
@@ -334,8 +366,11 @@ export default {
       if (isPast(clean.date, clean.time) || bl === 'all' || (Array.isArray(bl) && bl.includes(clean.time)) || b[clean.date]?.[clean.time]) return json({ ok: false, error: 'busy' }, 409);
       b[clean.date] = b[clean.date] || {}; b[clean.date][clean.time] = clean;
       await putJ(env, 'bookings', b);
+      const ords = await getOrders(env);
+      ords[clean.num] = { status: 'new', date: clean.date, time: clean.time, device: clean.device, services: clean.services.map(x => x.name).join(', ') };
+      await putJ(env, 'orders', ords);
       const list = await admins(env);
-      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), [[{ text: '❌ Отменить запись', callback_data: `x:${clean.date}:${clean.time}` }]])));
+      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), orderKb(clean))));
       if (ctx && ctx.waitUntil) ctx.waitUntil(notify); else await notify;
       return json({ ok: true });
     }
@@ -350,15 +385,8 @@ export default {
     if (url.pathname === '/setup') {
       if (!env.PASSWORD || url.searchParams.get('key') !== env.PASSWORD) return new Response('Откройте /setup?key=ВАШ_ПАРОЛЬ', { status: 403, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
       const r = await tg(env, 'setWebhook', { url: `${url.origin}/tg`, secret_token: await secret(env), allowed_updates: ['message', 'callback_query'], drop_pending_updates: true });
-      await tg(env, 'setMyCommands', { commands: [
-        { command: 'menu', description: 'Управление сайтом' },
-        { command: 'today', description: 'Записи на сегодня' },
-        { command: 'tomorrow', description: 'Записи на завтра' },
-        { command: 'close', description: 'Закрыть запись (можно с текстом)' },
-        { command: 'open', description: 'Открыть запись' },
-        { command: 'block', description: 'Убрать / вернуть время' },
-        { command: 'price', description: 'Изменить цены' },
-      ] });
+      await tg(env, 'deleteMyCommands', {});
+      await tg(env, 'setChatMenuButton', { menu_button: { type: 'default' } });
       const me = await tg(env, 'getMe', {}); const name = me.result && me.result.username;
       const link = name ? `https://t.me/${name}?start=${encodeURIComponent(env.PASSWORD)}` : '';
       const kv = env.DB ? 'KV подключено ✅' : 'KV не подключено ❌ (Settings → Bindings → KV, имя DB)';

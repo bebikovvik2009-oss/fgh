@@ -665,7 +665,11 @@ button,a,.chip,.dish,.place,[data-go],[data-open]{-webkit-tap-highlight-color:tr
 .rc-top b{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rc-lbl{font-size:13px;font-weight:600;color:var(--fg-3);text-transform:uppercase;letter-spacing:.06em}
 .pill{padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;white-space:nowrap;background:rgba(52,89,184,.14);color:var(--accent)}
-.pill.s4{background:rgba(143,181,156,.16);color:var(--sage)}
+.pill.s2{background:rgba(143,181,156,.16);color:var(--sage)}
+.pill.cancel{background:rgba(220,70,70,.15);color:#ff7d7d}
+.st-cancel{display:flex;gap:12px;align-items:center;margin-top:14px;padding:14px 16px;border-radius:16px;background:rgba(220,70,70,.12);border:1px solid rgba(255,110,110,.28);color:#ff8a8a}
+.st-cancel .ico{width:22px;height:22px;flex:none}
+.st-cancel div{display:flex;flex-direction:column;gap:2px}.st-cancel b{color:#ff7d7d;font-size:17px}.st-cancel span{color:var(--fg-2);font-size:14px}
 .rc-rows,.rc-svc{display:flex;flex-direction:column;gap:9px}
 .rc-rows>div,.rc-svc>div{display:flex;justify-content:space-between;gap:14px;font-size:15px}
 .rc-rows>div>span:first-child{display:flex;align-items:center;gap:8px;color:var(--fg-2);flex:none}

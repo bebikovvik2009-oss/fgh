@@ -217,18 +217,37 @@ $('#cBook').addEventListener('click',()=>{ $('#calcModal').close(); setBook({typ
 renderCalc();
 
 /* статус ремонта */
-const stages=[['Принят','box'],['Диагностика','search'],['Ремонт','wrench'],['Проверка качества','shield'],['Готов к выдаче','check']];
-const demo={'RM-2481':['iPhone 15 Pro','Замена дисплея',2],'RM-1043':['Galaxy S24','Замена аккумулятора',4],'RM-3307':['Redmi Note 13','Чистка после воды',1]};
-$('#stForm').addEventListener('submit',e=>{
+const stages=[['Принят','box'],['В ремонте','wrench'],['Готов к выдаче','check']];
+const ST_IDX={new:0,repair:1,done:2};
+var ORDER_ST={}; /* статусы заказов с сервера */
+const demo={'RM-2481':['iPhone 15 Pro','Замена дисплея',1],'RM-1043':['Galaxy S24','Замена аккумулятора',2],'RM-3307':['Redmi Note 13','Чистка после воды',0]};
+function localStage(date,time){ if(!date) return 0; const n=spbNow(); const [h,m]=String(time||'00:00').split(':').map(Number); const t=fromIso(date); t.setHours(h,m||0,0,0); return n>=t?1:0; }
+function orderState(num){
+  const sv=ORDER_ST[num]; if(sv) return {s:sv.s, stage:sv.s==='cancelled'?-1:ST_IDX[sv.s]??0, date:sv.date, time:sv.time};
+  const r=(typeof receipts!=='undefined'?receipts:[]).find(x=>x.num===num&&!x.demo);
+  if(r) return {s:'local', stage:localStage(r.date,r.time), date:r.date, time:r.time};
+  if(demo[num]) return {s:'demo', stage:demo[num][2]};
+  return null;
+}
+async function fetchStatus(nums){
+  if(!ORDER_API||!nums.length) return;
+  try{ const r=await fetch(api('/status?n='+encodeURIComponent(nums.join(','))),{cache:'no-store'}); if(r.ok){ Object.assign(ORDER_ST,await r.json()); } }catch(e){}
+}
+function renderStatus(num){
+  const st=orderState(num), d=demo[num]||[ORDER_ST[num]?.device||'Заказ',ORDER_ST[num]?.services||''];
+  if(!st){ $('#stErr').textContent='Заказ не найден. Проверьте номер в квитанции.'; $('#stErr').hidden=false; $('#stOut').innerHTML=''; return; }
+  const head=`<div class="order-card"><span class="badge c-accent">${ico('device')}</span><div style="display:flex;flex-direction:column"><b>${num} · ${esc(String(d[0]).replace(/^(Телефон|Ноутбук|Планшет|Консоль)\s+/,''))}</b><span>${esc(d[1]||'')}</span></div></div>`;
+  if(st.stage<0){ $('#stOut').innerHTML=head+`<div class="st-cancel">${ico('x')}<div><b>Заказ отменён</b><span>Если это ошибка — позвоните нам.</span></div></div>`; return; }
+  const when=st.date?`${human(st.date)}, ${st.time}`:'';
+  $('#stOut').innerHTML=head+`<ul class="steps" style="margin-top:14px">${stages.map(([n,i],k)=>`<li class="${k<st.stage?'passed':k===st.stage?'now':''}"><span class="dot">${ico(k<st.stage?'check':i)}</span><span>${n}</span><time>${k===0&&when?esc(when):k===1&&st.stage>=1&&when?'с '+esc(st.time):''}</time></li>`).join('')}</ul>`;
+}
+$('#stForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const raw=$('#stNum').value.trim().toUpperCase().replace(/\s/g,''); const num=/^\d{4}$/.test(raw)?'RM-'+raw:raw;
   const err=$('#stErr');
   if(!/^RM-\d{4}$/.test(num)){ err.textContent='Номер выглядит как RM и четыре цифры, например RM-2481. Он есть в квитанции.'; err.hidden=false; $('#stOut').innerHTML=''; return; }
   err.hidden=true;
-  const d=demo[num]||['Смартфон','Ремонт',[...num].reduce((a,c)=>a+(+c||0),0)%5];
-  const now=new Date(); const ts=i=>{const t=new Date(now-(d[2]-i)*3*3600e3); return t.toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});};
-  $('#stOut').innerHTML=`<div class="order-card"><span class="badge c-accent">${ico('device')}</span><div style="display:flex;flex-direction:column"><b>${num} · ${d[0]}</b><span>${d[1]}</span></div></div>
-  <ul class="steps" style="margin-top:14px">${stages.map(([n,i],k)=>`<li class="${k<d[2]?'passed':k===d[2]?'now':''}"><span class="dot">${ico(k<d[2]?'check':i)}</span><span>${n}</span><time>${k<=d[2]?ts(k):''}</time></li>`).join('')}</ul>`;
+  await fetchStatus([num]); renderStatus(num);
 });
 
 /* отзывы */
@@ -775,7 +794,7 @@ $('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]
 
 /* ===== квитанции ===== */
 const RC_KEY='repair-receipts';
-const STAGES=['Принят','Диагностика','Ремонт','Проверка качества','Готов к выдаче'];
+const STAGES=['Принят','В ремонте','Готов к выдаче'];
 const RC_DEMO={
   'RM-2481':{num:'RM-2481',date:nextDays(1)[0],time:'11:00',device:'Телефон Apple, iPhone 15 Pro',services:[{name:'Замена дисплея',lo:8200,hi:10200}],name:'Пример',phone:'+7 900 000-00-00'},
   'RM-1043':{num:'RM-1043',date:nextDays(1)[0],time:'15:00',device:'Телефон Samsung, Galaxy S24',services:[{name:'Замена аккумулятора',lo:3200,hi:4000}],name:'Пример',phone:'+7 900 000-00-00'},
@@ -805,6 +824,7 @@ function applyState(st){
 async function loadState(){
   if(!ORDER_API) return;
   try{ const r=await fetch(api('/state'),{cache:'no-store'}); if(r.ok) applyState(await r.json()); }catch(e){}
+  const nums=receipts.filter(x=>!x.demo).map(x=>x.num); if(nums.length){ await fetchStatus(nums); renderReceipts(); }
 }
 function orderFailed(o,msg){
   receipts=receipts.filter(x=>x.num!==o.num); saveRc(); renderReceipts();
@@ -824,7 +844,7 @@ async function postOrder(o){
     orderFailed(o,'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.');
   }catch(e){ orderFailed(o,'Нет связи с сервером. Попробуйте ещё раз или позвоните нам.'); }
 }
-loadState(); setInterval(loadState,60000);
+loadState(); setInterval(()=>{ loadState(); if(!ORDER_API) renderReceipts(); },60000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) loadState(); });
 
 /* ===== Telegram напрямую (если сервер не подключён) =====
@@ -864,9 +884,9 @@ function sendToTelegram(o){
 function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); if(!o.demo){ if(ORDER_API) postOrder(o); else sendToTelegram(o); } }
 const maskPhone=p=>{ const d=String(p).replace(/\D/g,''); return d.length>=10?`+7 ••• •••-${d.slice(-4,-2)}-${d.slice(-2)}`:p; };
 function rcCard(x){
-  const st=demo[x.num]?.[2]??0, tot=x.services.reduce((a,s)=>({lo:a.lo+s.lo,hi:a.hi+s.hi}),{lo:0,hi:0});
+  const os=orderState(x.num)||{stage:0}, st=os.stage, tot=x.services.reduce((a,s)=>({lo:a.lo+s.lo,hi:a.hi+s.hi}),{lo:0,hi:0});
   return `<article class="rc">
-    <div class="rc-top"><div><b>${x.num}</b></div><span class="pill s${st}">${STAGES[st]}</span></div>
+    <div class="rc-top"><div><b>${x.num}</b></div><span class="pill ${st<0?'cancel':'s'+st}">${st<0?'Отменён':STAGES[st]}</span></div>
     <div class="rc-rows">
       <div><span>${ico('cal')}Приём</span><span>${esc(human(x.date))}, ${x.time}</span></div>
       <div><span>${ico('device')}Устройство</span><span title="${esc(x.device)}">${esc(String(x.device).replace(/^(Телефон|Ноутбук|Планшет|Консоль|Приставка)\s+/,''))}</span></div>
