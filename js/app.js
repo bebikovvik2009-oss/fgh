@@ -232,17 +232,21 @@ $('#stForm').addEventListener('submit',e=>{
 });
 
 /* отзывы */
+/* отзывы импортированы из 2ГИС: https://2gis.ru/spb/firm/70000001113686140/tab/reviews */
 const reviews=[
-  ['Мария К.',5,'Разбила экран на iPhone утром, к обеду забрала как новый. Face ID работает, True Tone на месте.'],
-  ['Дмитрий',5,'Телефон полежал в луже. Почистили, высушили, спасли все фото. Отдельное спасибо мастеру Илье.'],
-  ['Елена Р.',4,'Поменяли батарею за 30 минут, пока я пила кофе рядом. Немного подождала очередь, но всё честно.'],
-  ['Артём',5,'Сказали точную цену после бесплатной диагностики, и она не выросла. Редкость для сервисов.'],
-  ['Ольга',5,'Курьер забрал телефон из офиса и вечером привёз обратно. Очень удобно, когда нет времени.'],
-  ['Игорь Н.',5,'Не заряжался Samsung. Оказалось, просто окислился разъём. Почистили за 20 минут и не стали навязывать замену.'],
-  ['Светлана',5,'Заднее стекло поменяли в цвет, не отличить от заводского. Гарантию дали полгода.'],
-  ['Никита',4,'Ремонт платы занял три дня вместо двух, но держали в курсе через статус заказа.'],
-  ['Анна В.',5,'Ремонт при мне: всё видно на экране с микроскопа. Спокойно, когда понимаешь, что делают с телефоном.']
-].map(r=>({n:r[0],s:r[1],t:r[2]}));
+  ["Кристина Дрямова", 5, "Сделали очень качественно ремонт, и очень удивилась что мастер который до этого работал в ленте сейчас тут , с уверенностью могу сказать что Натик это лучший мастер , очень вежливый , и грамотно все объясняет"],
+  ["Елизавета Александрова", 5, "Отличная мастерская! Поменяли экран и аккумулятор на моем любимом айфоне быстро и качественно! Мастер Натик очень вежливый и компетентный специалист 👍"],
+  ["Городской житель", 5, "Сделали качественно и быстро, дешевле чем в других сервисах"],
+  ["Орхан Хагвердиев", 5, "Отличный мастер, приятное место, сделали ремонт быстро и не дорого"],
+  ["Людмила Голубенко", 5, "Очень крутой сервис ,качественно ,быстро ,не дорого,отдельное спасибо Натику ,замечательный мастер и что хочу заметить ,очень красивая мастерская ,советую"],
+  ["Елизавета", 5, "Мастер Натик настоящий профессионал своего дела. Ремонтировала айфон, качество без нареканий. Если буду ещё обращаться, то только сюда)"],
+  ["Дмитрий", 5, "Отличная мастерская. Меняли дисплей на телефоне, все сделали быстро и качественно и цены адекватные. Большой плюс что рядом с домом и не надо далеко ходить. Спасибо."],
+  ["Светлана Белинская", 5, "Так удобно! Мастерская открылась недалеко от моего дома. Обратилась к мастеру Натику и осталась очень довольна. Сделал быстро, все объяснил, а самое главное, что цены доступные!"],
+  ["Гулина Жангазиева", 5, "Огромное спасибо Натику! Обратилась с заменой экрана на телефон и почистить ноутбук. Все было выполнено качественно и быстро! Советую"],
+  ["Мария Игнатова", 5, "Спасибо большое! Обратилась чтобы заменить разбитый экран на 11 айфоне, предложили и сменить батарею на новую. Всем довольна, цены адекватные, мастер все рассказал, показал, дал рекомендации. Однозначно рекомендую 👍"],
+  ["Нина Ковалева", 5, "Лучший сервис в городе. Мастера не пытаются \"развести\" на дорогой ремонт, говорят всё как есть. Делают быстро, аккуратно и, главное, на совесть. Ремонтировала здесь уже второй телефон, и снова убеждаюсь, что ребятам можно доверять на 100%. Спасибо за профессионализм и честное отношение к клиентам!"],
+  ["Валерия Ярош", 5, "Заменили дисплей качественно и по ценам все доступно. Спасибо мастеру Натику."]
+].map(r=>({n:r[0],s:r[1],t:r[2],src:'2gis'}));
 const stars=n=>[1,2,3,4,5].map(i=>`<svg class="ico ${i>n?'off':''}"><use href="#i-star"/></svg>`).join('');
 const track=$('#reviews');
 const step=()=>{const r=track.querySelector('.review'); return r? r.offsetWidth+16 : 1;};
@@ -257,7 +261,7 @@ function renderDots(){
 }
 const toPage=i=>track.scrollTo({left:i*step()*perView(),behavior:'smooth'});
 function renderReviews(){
-  const all=[0,1,3,7,41,388]; reviews.forEach(r=>all[r.s]++);
+  const all=[0,0,0,0,0,0]; reviews.forEach(r=>all[r.s]++);
   const total=all.reduce((a,b)=>a+b,0), mean=all.reduce((a,c,i)=>a+c*i,0)/total;
   $('#avg').textContent=mean.toFixed(1).replace('.',','); $('#topAvg').textContent=mean.toFixed(1).replace('.',',');
   $('#avgStars').innerHTML=stars(Math.round(mean));
@@ -297,9 +301,9 @@ $('#revForm').addEventListener('submit',e=>{
 renderPick(); renderReviews();
 
 /* карта */
-const SHOP={n:'GEZA SERVICE',a:'Новосельковская улица, 3',sub:'Коломяги, Приморский район, Санкт-Петербург, 197375',h:'Ежедневно 10:00–21:00',p:'+7 (900) 000-00-00',lat:60.028194,lon:30.293212};
+const SHOP={n:'GEZA SERVICE',a:'Новосельковская улица, 3',sub:'Коломяги, Приморский район, Санкт-Петербург, 197375',h:'Ежедневно 10:00–21:00',p:'+7 (915) 227-59-92',lat:60.028102,lon:30.293247,firm:'70000001113686140'};
 const MAP_LINKS=[
-  ['2ГИС','https://2gis.ru/spb/geo/5348660212757407'],
+  ['2ГИС',`https://2gis.ru/spb/firm/${SHOP.firm}`],
   ['Яндекс Карты',`https://yandex.ru/maps/?pt=${SHOP.lon},${SHOP.lat}&z=17&l=map`],
   ['Google Maps',`https://www.google.com/maps/search/?api=1&query=${SHOP.lat},${SHOP.lon}`]
 ];
@@ -308,7 +312,7 @@ function renderPlaces(){
   $('#places').innerHTML=`<div class="place active"><span class="badge c-accent">${ico('wrench')}</span><div style="min-width:0">
     <h3>${SHOP.n}</h3>
     <div class="rows"><span>${ico('pin')}<b class="addr">${SHOP.a}</b><button type="button" class="copy-btn" data-copy="${SHOP.a}, Санкт-Петербург" aria-label="Скопировать адрес">${ico('copy')}</button></span><span class="sub">${SHOP.sub}</span><span>${ico('clock')}${SHOP.h}</span><span class="open-now sm" data-open-now><i></i><span class="on-st">Открыто</span><span class="on-t">до 21:00</span></span><a class="tel" href="tel:${SHOP.p.replace(/[^+\d]/g,'')}">${ico('phone')}${SHOP.p}</a></div>
-    <a class="btn primary sm route" href="https://yandex.ru/maps/?rtext=~${SHOP.lat},${SHOP.lon}&rtt=auto" target="_blank" rel="noopener">${ico('route')}Построить маршрут</a>
+    <a class="btn primary sm route" href="https://2gis.ru/spb/directions/points/%7C${SHOP.lon}%2C${SHOP.lat}%3B${SHOP.firm}" target="_blank" rel="noopener">${ico('route')}Построить маршрут</a>
     <div class="map-links">${MAP_LINKS.map(([n,u])=>`<a href="${u}" target="_blank" rel="noopener">${n}${ico('arrow')}</a>`).join('')}</div>
   </div></div>`;
 }
@@ -317,11 +321,29 @@ function renderPlaces(){
   const canEmbed=/^https?:$/.test(location.protocol)&&!/claude|anthropic/i.test(host);
   if(canEmbed){
     const f=$('#mapFrame');
-    f.src=`https://yandex.ru/map-widget/v1/?ll=${SHOP.lon}%2C${SHOP.lat}&z=16&pt=${SHOP.lon}%2C${SHOP.lat}%2Cpm2blm&theme=dark`;
+    f.src='https://widgets.2gis.com/widget?type=firmsonmap&options='+encodeURIComponent(JSON.stringify({pos:{lat:SHOP.lat,lon:SHOP.lon,zoom:17},opt:{city:'spb'},org:SHOP.firm}));
     f.hidden=false; $('#mapFallback').hidden=true;
   }
 })();
 renderPlaces();
+
+/* живые отзывы из 2ГИС: подгружаются при открытии сайта, новые появляются сами */
+(async function live2gis(){
+  if(!/^https?:$/.test(location.protocol)||/claude|anthropic/i.test(location.hostname)) return;
+  const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  try{
+    const ctl=new AbortController(); setTimeout(()=>ctl.abort(),9000);
+    const u=`https://public-api.reviews.2gis.com/2.0/branches/${SHOP.firm}/reviews?limit=50&is_advertiser=false&fields=meta.branch_rating,meta.branch_reviews_count,meta.total_count&sort_by=date_created&locale=ru_RU&key=37c04fe6-a560-4549-b459-02309cf643ad`;
+    const r=await fetch(u,{signal:ctl.signal}); if(!r.ok) return;
+    const j=await r.json();
+    const list=(j.reviews||[]).filter(x=>x&&x.text&&x.rating).map(x=>({n:esc((x.user&&x.user.name)||'Клиент 2ГИС'),s:Math.max(1,Math.min(5,Math.round(+x.rating))),t:esc(x.text.trim()),src:'2gis'}));
+    if(!list.length) return;
+    const own=reviews.filter(x=>x.src!=='2gis');
+    reviews.length=0; reviews.push(...own,...list);
+    renderReviews(); try{ renderRvM(); }catch(e){}
+  }catch(e){}
+})();
+
 
 
 /* ===== запись: выбор устройства ===== */
@@ -863,9 +885,9 @@ const rvM={f:'all',shown:3};
 function rvMarkLong(){ $$('#rvList .rv-item').forEach(it=>{ if(it.classList.contains('full')) return; const p=it.querySelector('p'); it.classList.toggle('long',p.scrollHeight>p.clientHeight+2); }); }
 function rvFiltered(){ return reviews.filter(r=>rvM.f==='all'||(rvM.f==='3'?r.s<=3:r.s==+rvM.f)); }
 function renderRvM(animFrom=0){
-  const all=[0,1,3,7,41,388]; reviews.forEach(r=>all[r.s]++); const total=all.reduce((a,b)=>a+b,0), mean=all.reduce((a,c,i)=>a+c*i,0)/total;
+  const all=[0,0,0,0,0,0]; reviews.forEach(r=>all[r.s]++); const total=all.reduce((a,b)=>a+b,0), mean=all.reduce((a,c,i)=>a+c*i,0)/total;
   $('#avgM').textContent=mean.toFixed(1).replace('.',','); $('#avgStarsM').innerHTML=stars(Math.round(mean));
-  $('#rvCount').textContent=`${total} оценок`;
+  $('#rvCount').textContent=`${total} ${(n=>n%10==1&&n%100!=11?'оценка':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'оценки':'оценок')(total)}`;
   $('#barsM').innerHTML=[5,4,3,2,1].map(i=>`<div><span>${i}</span><i><b style="--w:${(all[i]/total*100).toFixed(1)}%"></b></i></div>`).join('');
   const list=rvFiltered(), vis=list.slice(0,rvM.shown);
   $('#rvList').innerHTML=vis.length?vis.map((r,k)=>`<article class="rv-item${k>=animFrom?' rv-in':''}" style="--k:${Math.max(0,k-animFrom)}"><div class="rv-top"><span class="ava c-${tones[(reviews.indexOf(r))%4]}">${esc(r.n[0])}</span><div class="rv-who"><h4>${esc(r.n)}</h4><div class="stars">${stars(r.s)}</div></div></div><p>${esc(r.t)}</p></article>`).join(''):'<p class="rv-empty">Таких отзывов пока нет</p>';
