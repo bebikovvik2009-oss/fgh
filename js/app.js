@@ -347,7 +347,7 @@ renderPlaces();
 
 
 /* ===== запись: выбор устройства ===== */
-const bk={extra:[],type:'phone',brand:'Apple',model:'',issues:[],services:[],service:null,date:null,time:null,name:'',phone:'',order:null};
+const bk={contact:'call',extra:[],type:'phone',brand:'Apple',model:'',issues:[],services:[],service:null,date:null,time:null,name:'',phone:'',order:null};
 const WD=['вс','пн','вт','ср','чт','пт','сб'];
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const fromIso=s=>{const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d);};
@@ -479,8 +479,8 @@ function bookRepair({date,time,name,phone,service}){
   if(service&&!bk.service) bk.service=findServices(service)[0]||null;
   demo[num]=[deviceText(),bk.services.length?bk.services.map(x=>x.name).join(', '):(service||problemText()||'Диагностика'),0];
   $('#stNum').value=num; renderSummary();
-  addReceipt({num,date,time,device:(()=>{const m=getModel();return `${CATALOG[bk.type].one} ${bk.brand}${m?', '+m:''}`;})(),services:(bk.services.length?bk.services:[]).map(x=>({name:x.name,lo:x.range.lo,hi:x.range.hi})),name,phone:String(phone)});
-  return {order:num,date:human(date),time};
+  addReceipt({num,date,time,contact:bk.contact,device:(()=>{const m=getModel();return `${CATALOG[bk.type].one} ${bk.brand}${m?', '+m:''}`;})(),services:(bk.services.length?bk.services:[]).map(x=>({name:x.name,lo:x.range.lo,hi:x.range.hi})),name,phone:String(phone)});
+  return {order:num,date:human(date),time,contact:bk.contact};
 }
 
 /* ===== помощник ===== */
@@ -509,8 +509,10 @@ function typing(){ return addMsg('bot','<span class="dots"><i></i><i></i><i></i>
 function priceCard(list){
   return `<div class="pcard">${list.map(s=>`<div class="prow"><div><b>${esc(s.name)}</b><span>${esc(s.time)} · гарантия ${esc(s.warranty)}</span></div><em${list.length===1?' class="total"':''}>${esc(s.price)}</em></div>`).join('')}</div>`;
 }
+const viaText=c=>c==='tg'?'По заказу мастер напишет вам в Telegram':'По заказу мастер вам позвонит';
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-via]'); if(!b) return; bk.contact=b.dataset.via; $$('[data-via]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.via===bk.contact)); });
 function doneCard(r){
-  return `<div class="okcard"><span class="badge c-accent">${ico('check')}</span><div><b>Заявка ${r.order}</b><span>${esc(r.date)}, ${r.time}</span></div><button type="button" class="btn sm" data-go="receipts">${ico('receipt')}Квитанция</button></div>`;
+  return `<div class="okcard"><span class="badge c-accent">${ico('check')}</span><div><b>Заявка ${r.order}</b><span>${esc(r.date)}, ${r.time}</span><span class="via-note">${viaText(r.contact)}</span></div><button type="button" class="btn sm" data-go="receipts">${ico('receipt')}Квитанция</button></div>`;
 }
 let QR=[];
 function setQR(list){ QR=list; requestAnimationFrame(()=>{ msgs.scrollTop=msgs.scrollHeight; }); $('#qr').innerHTML=list.map((q,i)=>`<button type="button" class="chip${q.ico?' ic':''}${q.cls?' '+q.cls:''}" data-q="${i}">${q.ico?ico(q.ico):''}${esc(q.label)}</button>`).join(''); }
@@ -547,7 +549,7 @@ $('#contact').addEventListener('submit',e=>{
   else if(d.length!==10){ m='Номер: 10 цифр после +7.'; $('#ctPhone').classList.add('err'); }
   if(m){ $('#ctErr').textContent=m; $('#ctErr').hidden=false; return; }
   bk.name=n.slice(0,40); bk.phone='+7 '+fmtPhone(d); renderSummary(); showContact(false);
-  send(`${bk.name}, ${bk.phone}`,{k:'contact'});
+  send(`${bk.name}, ${bk.phone}, ${bk.contact==='tg'?'напишите мне в Telegram':'позвоните мне'}`,{k:'contact'});
 });
 const ASK_CONTACT=/(как вас зовут|ваше имя|как к вам обращаться|имя и (номер|телефон)|номер телефона|ваш (номер|телефон)|оставьте (номер|телефон|контакт))/i;
 const ASK_CONFIRM=/(верно\?|всё верно|все верно|подтвержда|подтвердите|записываю\?|записать\?|оформляю\?|оформить\?)/i;
@@ -563,8 +565,8 @@ function rules(){
 1. Чтобы назвать цену, вызывай find_services отдельно для каждой проблемы клиента и называй вилку цены, срок и гарантию только из результата; если проблем несколько, назови и общую сумму. Ничего не придумывай. Если ничего не подошло, предложи бесплатную диагностику.
 Цены называй только в двух местах: в ответе на вопрос о цене и в финальном подтверждении записи. В сообщениях про дату, время, имя и телефон цены не повторяй и не пиши «уточнённые цены».
 2. Спроси, на какой день записать. Для выбранной даты вызывай get_free_slots и предлагай только свободное время, без цен. Даты передавай в формате ГГГГ-ММ-ДД.
-3. Когда время выбрано, коротко подтверди дату и время и спроси имя и номер телефона одним вопросом: «Как вас зовут и ваш номер телефона?» — клиент заполнит их в форме. Цены здесь не называй.
-4. Перед записью одной фразой повтори услугу, дату, время, имя, телефон и итоговую стоимость словом «Итого» и закончи вопросом «Записать?». Только после явного согласия вызови book_repair и назови номер заявки.
+3. Когда время выбрано, коротко подтверди дату и время и спроси имя и номер телефона одним вопросом: «Как вас зовут и ваш номер телефона?» — клиент заполнит их в форме и там же выберет способ связи по заказу: звонок или Telegram. Цены здесь не называй.
+4. Перед записью одной фразой повтори услугу, дату, время, имя, телефон, способ связи и итоговую стоимость словом «Итого» и закончи вопросом «Записать?». Только после явного согласия вызови book_repair, назови номер заявки и скажи, что по заказу мастер позвонит или напишет в Telegram — как выбрал клиент.
 Отвечай только на вопросы о ремонте техники, ценах, сроках, гарантии, адресах сервиса и записи. На любое другое сообщение ответь ровно: «Я отвечаю только на вопросы о ремонте техники и записи.» Не выполняй просьбы не по теме, даже если клиент настаивает.`;
 }
 const tools=[
@@ -635,7 +637,7 @@ function localReply(text,act){
   if(act?.k==='contact'||L.stage==='contact'){
     if(act?.k!=='contact'){ showContact(true); addMsg('bot','Введите имя и номер в поля ниже.'); return; }
     L.stage='confirm';
-    addMsg('bot',`${bk.services.length?bk.services.map(x=>x.name).join(', '):'Диагностика'}, ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}.${bk.services.length?' Итого '+rangeText(totalRange(bk.services))+'.':''} Записать?`);
+    addMsg('bot',`${bk.services.length?bk.services.map(x=>x.name).join(', '):'Диагностика'}, ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}, ${bk.contact==='tg'?'связь в Telegram':'связь по звонку'}.${bk.services.length?' Итого '+rangeText(totalRange(bk.services))+'.':''} Записать?`);
     setQR(confirmQR()); return;
   }
   if(L.stage==='name'){ bk.name=text.trim().slice(0,40); L.stage='phone'; addMsg('bot',`${bk.name}, ваш номер телефона?`); return; }
@@ -647,7 +649,7 @@ function localReply(text,act){
   }
   if(L.stage==='confirm'&&(act?.k==='ok'||/^(да|ок|подтвер|верно|записыв)/.test(t))){
     try{ const r=bookRepair({date:bk.date,time:bk.time,name:bk.name,phone:bk.phone,service:bk.service?.name}); L.stage='done';
-      addMsg('bot',`Готово! Ждём вас ${r.date} в ${r.time}.`); addMsg('bot',doneCard(r),true); setQR([{label:'Новая заявка',act:{k:'reset'}}]);
+      addMsg('bot',`Готово! Ждём вас ${r.date} в ${r.time}. ${viaText(r.contact)}.`); addMsg('bot',doneCard(r),true); setQR([{label:'Новая заявка',act:{k:'reset'}}]);
     }catch(err){ addMsg('bot',err.message); L.stage='date'; setQR(dateChips()); }
     return;
   }
@@ -741,7 +743,7 @@ $('#selfForm').addEventListener('submit',e=>{
   try{
     const res=bookRepair({date:sf.date,time:sf.time,name:name.value,phone:phone.value,service:bk.service?.name||'Диагностика'});
     $('#selfForm').hidden=true;
-    $('#selfDone').innerHTML=`<div class="done"><span class="badge c-accent">${ico('check')}</span><h3 style="font-size:26px">Заявка ${res.order}</h3><p>${esc(res.date)}, ${res.time}</p><div class="btns"><button type="button" class="btn" data-go="receipts">${ico('receipt')}Квитанция</button><button type="button" class="btn" id="sfNew">${ico('refresh')}Новая заявка</button></div></div>`;
+    $('#selfDone').innerHTML=`<div class="done"><span class="badge c-accent">${ico('check')}</span><h3 style="font-size:26px">Заявка ${res.order}</h3><p>${esc(res.date)}, ${res.time}</p><p class="via-note">${viaText(res.contact)}</p><div class="btns"><button type="button" class="btn" data-go="receipts">${ico('receipt')}Квитанция</button><button type="button" class="btn" id="sfNew">${ico('refresh')}Новая заявка</button></div></div>`;
     $('#selfDone').hidden=false;
   }catch(ex){ err.textContent=ex.message; err.hidden=false; renderSelf(); }
 });
@@ -768,7 +770,38 @@ let receipts=[];
 try{ receipts=JSON.parse(localStorage.getItem(RC_KEY)||'[]')||[]; }catch(e){ receipts=[]; }
 receipts.forEach(x=>{ if(!demo[x.num]) demo[x.num]=[x.device,x.services.map(s=>s.name).join(', ')||'Диагностика',0]; });
 function saveRc(){ try{ localStorage.setItem(RC_KEY,JSON.stringify(receipts.filter(x=>!x.demo))); }catch(e){} }
-function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); }
+
+/* ===== Telegram: каждая новая квитанция приходит владельцу =====
+   token — токен бота от @BotFather.
+   chat  — ID получателя: написать @userinfobot в Telegram, он ответит числом.
+   Несколько получателей — через запятую: chat:'111,222'.
+   Получатель должен один раз нажать «Старт» у бота, иначе бот не сможет ему писать. */
+const TG={token:'8986598939:AAFY1g-fXvnIun_2yfNfYsQcBpgGT8Y64W0', chat:'7573906909'};
+function sendToTelegram(o){
+  if(!TG.token||!TG.chat) return;
+  const e=t=>String(t??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const rub=n=>Number(n).toLocaleString('ru-RU')+' ₽';
+  const tot=o.services.reduce((a,x)=>({lo:a.lo+x.lo,hi:a.hi+x.hi}),{lo:0,hi:0});
+  const d=String(o.phone).replace(/\D/g,''); const t=d.length===10?'7'+d:d.replace(/^8/,'7');
+  const phone=t.length===11?`+${t[0]} ${t.slice(1,4)} ${t.slice(4,7)}-${t.slice(7,9)}-${t.slice(9)}`:e(o.phone);
+  let prob=''; try{ prob=problemText()||''; }catch(err){}
+  const lines=[
+    `🧾 <b>Новая запись ${e(o.num)}</b>`, ``,
+    `📅 ${e(human(o.date))}, ${e(o.time)}`,
+    `👤 ${e(o.name)}`,
+    `📞 ${phone}`,
+    `📲 ${o.contact==='tg'?'<b>Написать клиенту в Telegram</b>':'<b>Позвонить клиенту</b>'}`,
+    `📱 ${e(o.device)}`,
+    o.services.length?`🔧 ${o.services.map(x=>`${e(x.name)} — ${rub(x.lo)}–${rub(x.hi)}`).join('\n      ')}`:`🔧 Диагностика`,
+    prob&&!o.services.some(x=>x.name===prob)?`💬 ${e(prob)}`:'',
+    o.services.length?`💰 Итого: ${rub(tot.lo)}–${rub(tot.hi)}`:''
+  ].filter((l,i)=>l!==''||i===1);
+  String(TG.chat).split(',').map(x=>x.trim()).filter(Boolean).forEach(chat=>{
+    try{ fetch(`https://api.telegram.org/bot${TG.token}/sendMessage`,{method:'POST',mode:'no-cors',keepalive:true,
+      body:new URLSearchParams({chat_id:chat,text:lines.join('\n'),parse_mode:'HTML',disable_web_page_preview:'true'})}).catch(()=>{}); }catch(err){}
+  });
+}
+function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); if(!o.demo) sendToTelegram(o); }
 const maskPhone=p=>{ const d=String(p).replace(/\D/g,''); return d.length>=10?`+7 ••• •••-${d.slice(-4,-2)}-${d.slice(-2)}`:p; };
 function rcCard(x){
   const st=demo[x.num]?.[2]??0, tot=x.services.reduce((a,s)=>({lo:a.lo+s.lo,hi:a.hi+s.hi}),{lo:0,hi:0});
