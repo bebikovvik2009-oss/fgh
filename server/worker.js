@@ -16,7 +16,7 @@
 const SLOTS = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 const DAYS_AHEAD = 30;
 const DEFAULT_CLOSED = 'Запись временно закрыта. Позвоните нам — подскажем, когда сможем принять технику.';
-const CATALOG = {"phone": {"name": "Телефоны", "items": [["Замена дисплея", 8900], ["Замена защитного стекла", 4900], ["Ремонт сенсора", 3900], ["Восстановление подсветки", 3500], ["Замена аккумулятора", 3900], ["Замена контроллера питания", 4500], ["Ремонт быстрой зарядки", 2900], ["Беспроводная зарядка", 3200], ["Замена заднего стекла", 3900], ["Замена корпуса", 7900], ["Ремонт кнопок", 1900], ["Выпрямление корпуса", 2500], ["Замена основной камеры", 5900], ["Замена фронтальной камеры", 3900], ["Замена стекла камеры", 1900], ["Ремонт вспышки", 1500], ["Замена разъёма зарядки", 2900], ["Замена динамика", 2400], ["Замена микрофона", 2400], ["Чистка сеток и разъёмов", 900], ["Чистка после воды", 2900], ["Ремонт материнской платы", 6900], ["Восстановление данных", 4900], ["Бесплатная диагностика", 0]]}, "laptop": {"name": "Ноутбуки", "items": [["Замена матрицы", 12900], ["Замена шлейфа матрицы", 3900], ["Ремонт петель", 4500], ["Замена клавиатуры", 5900], ["Замена аккумулятора", 6900], ["Ремонт разъёма питания", 3500], ["Замена порта USB-C", 3900], ["Ремонт цепи питания", 7900], ["Чистка и замена термопасты", 3500], ["Замена SSD с переносом данных", 2900], ["Установка системы", 2500], ["Ремонт после залития", 7900]]}, "tablet": {"name": "Планшеты", "items": [["Замена дисплея", 9900], ["Замена сенсорного стекла", 5900], ["Ремонт подсветки", 4500], ["Защитное стекло", 1200], ["Замена аккумулятора", 5900], ["Замена разъёма зарядки", 3500], ["Ремонт контроллера питания", 4900], ["Ремонт кнопки питания", 2500], ["Замена корпуса", 6900], ["Ремонт камеры", 4900], ["Замена динамика", 2900], ["Ремонт после воды", 4900]]}, "console": {"name": "Консоли", "items": [["Ремонт стиков", 2500], ["Замена аккумулятора геймпада", 2200], ["Ремонт кнопок и курков", 1900], ["Замена разъёма геймпада", 1900], ["Чистка и замена термопасты", 3500], ["Замена HDMI-порта", 4900], ["Ремонт дисковода", 5500], ["Ремонт блока питания", 5900], ["Замена экрана", 7900], ["Замена джойстиков", 2500], ["Замена аккумулятора", 4900], ["Замена вентилятора", 3500]]}};
+const CATALOG = {"phone": {"name": "Телефоны", "cats": ["Экран", "Аккумулятор", "Корпус и стекло", "Камера", "Разъём и звук", "Плата и вода"], "items": [["Замена дисплея", 8900, "Экран"], ["Замена защитного стекла", 4900, "Экран"], ["Ремонт сенсора", 3900, "Экран"], ["Восстановление подсветки", 3500, "Экран"], ["Замена аккумулятора", 3900, "Аккумулятор"], ["Замена контроллера питания", 4500, "Аккумулятор"], ["Ремонт быстрой зарядки", 2900, "Аккумулятор"], ["Беспроводная зарядка", 3200, "Аккумулятор"], ["Замена заднего стекла", 3900, "Корпус и стекло"], ["Замена корпуса", 7900, "Корпус и стекло"], ["Ремонт кнопок", 1900, "Корпус и стекло"], ["Выпрямление корпуса", 2500, "Корпус и стекло"], ["Замена основной камеры", 5900, "Камера"], ["Замена фронтальной камеры", 3900, "Камера"], ["Замена стекла камеры", 1900, "Камера"], ["Ремонт вспышки", 1500, "Камера"], ["Замена разъёма зарядки", 2900, "Разъём и звук"], ["Замена динамика", 2400, "Разъём и звук"], ["Замена микрофона", 2400, "Разъём и звук"], ["Чистка сеток и разъёмов", 900, "Разъём и звук"], ["Чистка после воды", 2900, "Плата и вода"], ["Ремонт материнской платы", 6900, "Плата и вода"], ["Восстановление данных", 4900, "Плата и вода"], ["Бесплатная диагностика", 0, "Плата и вода"]]}, "laptop": {"name": "Ноутбуки", "cats": ["Экран и корпус", "Питание", "Система и чистка"], "items": [["Замена матрицы", 12900, "Экран и корпус"], ["Замена шлейфа матрицы", 3900, "Экран и корпус"], ["Ремонт петель", 4500, "Экран и корпус"], ["Замена клавиатуры", 5900, "Экран и корпус"], ["Замена аккумулятора", 6900, "Питание"], ["Ремонт разъёма питания", 3500, "Питание"], ["Замена порта USB-C", 3900, "Питание"], ["Ремонт цепи питания", 7900, "Питание"], ["Чистка и замена термопасты", 3500, "Система и чистка"], ["Замена SSD с переносом данных", 2900, "Система и чистка"], ["Установка системы", 2500, "Система и чистка"], ["Ремонт после залития", 7900, "Система и чистка"]]}, "tablet": {"name": "Планшеты", "cats": ["Экран", "Питание", "Корпус и камера"], "items": [["Замена дисплея", 9900, "Экран"], ["Замена сенсорного стекла", 5900, "Экран"], ["Ремонт подсветки", 4500, "Экран"], ["Защитное стекло", 1200, "Экран"], ["Замена аккумулятора", 5900, "Питание"], ["Замена разъёма зарядки", 3500, "Питание"], ["Ремонт контроллера питания", 4900, "Питание"], ["Ремонт кнопки питания", 2500, "Питание"], ["Замена корпуса", 6900, "Корпус и камера"], ["Ремонт камеры", 4900, "Корпус и камера"], ["Замена динамика", 2900, "Корпус и камера"], ["Ремонт после воды", 4900, "Корпус и камера"]]}, "console": {"name": "Консоли", "cats": ["Геймпады", "Приставка", "Портативные"], "items": [["Ремонт стиков", 2500, "Геймпады"], ["Замена аккумулятора геймпада", 2200, "Геймпады"], ["Ремонт кнопок и курков", 1900, "Геймпады"], ["Замена разъёма геймпада", 1900, "Геймпады"], ["Чистка и замена термопасты", 3500, "Приставка"], ["Замена HDMI-порта", 4900, "Приставка"], ["Ремонт дисковода", 5500, "Приставка"], ["Ремонт блока питания", 5900, "Приставка"], ["Замена экрана", 7900, "Портативные"], ["Замена джойстиков", 2500, "Портативные"], ["Замена аккумулятора", 4900, "Портативные"], ["Замена вентилятора", 3500, "Портативные"]]}};
 
 /* ---------- утилиты ---------- */
 const CORS = {
@@ -78,7 +78,16 @@ const store = env => env.SQL ? {
 } : env.DB;
 async function getJ(env, k, def) { try { const v = await store(env).get(k); return v ? JSON.parse(v) : def; } catch { return def; } }
 const putJ = (env, k, v, opt) => store(env).put(k, JSON.stringify(v), opt);
-async function getCfg(env) { const c = await getJ(env, 'cfg', {}); return { closed: !!c.closed, closedMsg: c.closedMsg || '', prices: c.prices || {}, blocked: c.blocked || {} }; }
+async function getCfg(env) { const c = await getJ(env, 'cfg', {}); return { closed: !!c.closed, closedMsg: c.closedMsg || '', prices: c.prices || {}, blocked: c.blocked || {}, removed: c.removed || {}, added: c.added || {}, imgs: c.imgs || {} }; }
+/* все услуги раздела: исходные + добавленные через бота */
+function allItems(cfg, type) {
+  const T = CATALOG[type]; const ov = cfg.prices[type] || {}; const rm = cfg.removed[type] || []; const ad = cfg.added[type] || [];
+  return [
+    ...T.items.map(([n, p, c]) => ({ n, base: p, p: ov[n] ?? p, c, added: false, hidden: rm.includes(n), changed: ov[n] != null })),
+    ...ad.map(a => ({ n: a.n, base: a.p, p: a.p, c: a.c, added: true, hidden: false, changed: false })),
+  ];
+}
+function imgKey(type, name) { let h = 2166136261; for (const ch of type + '|' + name) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return type + '-' + h.toString(16); }
 async function getBookings(env) {
   const b = await getJ(env, 'bookings', {}); const t = msk().date; let pruned = false;
   for (const d of Object.keys(b)) if (d < addDays(t, -2)) { delete b[d]; pruned = true; }
@@ -131,38 +140,44 @@ function orderText(o, status) {
   const svc = Array.isArray(o.services) ? o.services.slice(0, 10) : [];
   const tot = svc.reduce((a, x) => ({ lo: a.lo + (+x.lo || 0), hi: a.hi + (+x.hi || 0) }), { lo: 0, hi: 0 });
   const rr = (lo, hi) => lo === hi ? rub(lo) : `${num(lo)}–${rub(hi)}`;
-  const phone = fmtPhone(o.phone);
-  const lines = [
-    `🧾 <b>Новая запись · ${esc(o.num)}</b>`,
-    `📅 <b>${esc(ruDay(o.date))} · ${esc(o.time)}</b>`,
-    '',
-    `👤 ${esc(o.name)}`,
-    `📞 ${phone}`,
-    o.contact === 'tg' ? `✈️ Связь: <b>Telegram ${esc(o.tg || '')}</b>` : '☎️ Связь: <b>позвонить</b>',
-    '',
-    `📱 ${esc(o.device)}`,
-    ...(svc.length ? svc.map(x => `🔧 ${esc(x.name)} · ${rr(+x.lo || 0, +x.hi || 0)}`) : ['🔧 Бесплатная диагностика']),
-    o.problem ? `💬 ${esc(o.problem)}` : null,
-    svc.length > 1 || (svc.length && o.problem) ? `💰 <b>Итого: ${rr(tot.lo, tot.hi)}</b>` : null,
-  ].filter(l => l !== null);
-  if (status) lines.push('', status);
-  return lines.join('\n');
+  const block = (title, rows) => `<blockquote><b>${title}</b>\n${rows.filter(Boolean).join('\n')}</blockquote>`;
+  const parts = [
+    `🧾 <b>Новая запись ${esc(o.num)}</b>`,
+    block('📅 Когда', [`${esc(ruDay(o.date))} · <b>${esc(o.time)}</b>`]),
+    block('👤 Клиент', [
+      esc(o.name),
+      `📞 ${fmtPhone(o.phone)}`,
+      o.contact === 'tg' ? `✈️ Написать в Telegram: ${esc(o.tg || '—')}` : '☎️ Перезвонить по телефону',
+    ]),
+    block('📱 Устройство', [
+      esc(o.device),
+      o.problem ? `Проблема: ${esc(o.problem)}` : '',
+    ]),
+    block('🔧 Работы', [
+      ...(svc.length ? svc.map(x => `• ${esc(x.name)} — ${rr(+x.lo || 0, +x.hi || 0)}`) : ['• Бесплатная диагностика']),
+      svc.length ? `\n💰 <b>Итого: ${rr(tot.lo, tot.hi)}</b>` : '',
+    ]),
+  ];
+  if (status) parts.push(status);
+  return parts.join('\n');
 }
 
 /* ---------- меню бота ---------- */
 async function menu(env) {
-  const cfg = await getCfg(env); const { b } = await getBookings(env); const t = msk().date;
-  const cnt = d => Object.keys(b[d] || {}).length;
+  const cfg = await getCfg(env); const t = msk().date;
+  const act = await activeOrders(env);
+  const cnt = d => act.filter(o => o.date === d).length;
   const text = [
     '<b>GEZA SERVICE · управление сайтом</b>', '',
     cfg.closed ? `🔴 Запись <b>закрыта</b>${cfg.closedMsg ? `\n<i>${esc(cfg.closedMsg)}</i>` : ''}` : '🟢 Запись <b>открыта</b>',
-    `📋 Сегодня записей: <b>${cnt(t)}</b>, завтра: <b>${cnt(addDays(t, 1))}</b>`,
+    `📋 Активных записей: сегодня <b>${cnt(t)}</b>, завтра <b>${cnt(addDays(t, 1))}</b>, всего <b>${act.length}</b>`,
   ].join('\n');
   const kb = [
     [cfg.closed ? { text: '🟢 Открыть запись', callback_data: 'open' } : { text: '🔴 Закрыть запись', callback_data: 'close' }],
     [{ text: '📋 Записи сегодня', callback_data: 'ls:' + t }, { text: '📋 Завтра', callback_data: 'ls:' + addDays(t, 1) }],
+    [{ text: `📦 Все заказы (${act.length})`, callback_data: 'la' }],
     [{ text: '⛔ Убрать / вернуть время', callback_data: 'bd' }],
-    [{ text: '💰 Изменить цены', callback_data: 'pt' }],
+    [{ text: '🛠 Услуги, цены и фото', callback_data: 'pt' }],
   ];
   return { text, kb };
 }
@@ -194,6 +209,33 @@ async function slotsView(env, date) {
   rows.push([{ text: '‹ Дни', callback_data: 'bd' }, { text: '‹ Меню', callback_data: 'menu' }]);
   const text = `<b>${esc(dayName(date))}</b>\n\nНажмите на время, чтобы убрать или вернуть его.\n✅ свободно · ⛔ убрано · 👤 есть запись`;
   return { text, kb: rows };
+}
+
+/* активные заказы (не отменённые, не выданные, не скрытые) */
+async function activeOrders(env) {
+  const { b } = await getBookings(env); const ords = await getOrders(env); const out = {}; const lim = addDays(msk().date, -60);
+  for (const [n, o] of Object.entries(ords)) if (o.full && !o.hidden && o.date >= lim) out[n] = { ...o.full, st: statusOf(o) };
+  for (const [d, day] of Object.entries(b)) for (const [t, o] of Object.entries(day)) if (!out[o.num] && !ords[o.num]?.hidden) out[o.num] = { ...o, st: statusOf(ords[o.num] || { date: d, time: t }) };
+  return Object.values(out).filter(o => !['cancelled', 'issued'].includes(o.st)).sort((a, b2) => (a.date + a.time).localeCompare(b2.date + b2.time));
+}
+const ordLine = o => `<b>${o.time}</b> · ${ST_LABEL[o.st]} · ${esc(o.num)}\n${esc(o.name)} · ${fmtPhone(o.phone)}\n${esc(o.device)}${o.services?.length ? ' — ' + esc(o.services.map(x => x.name).join(', ')) : ''}${o.contact === 'tg' ? `\n✈️ ${esc(o.tg || '')}` : ''}`;
+function ordButtons(o, sfx) {
+  const n = o.num, t = o.time;
+  if (o.st === 'done') return [{ text: `📦 Выдан ${t}`, callback_data: `g:${n}:${sfx}` }, { text: `↩️ ${t}`, callback_data: `u:${n}:${sfx}` }];
+  if (o.st === 'issued' || o.st === 'cancelled') return [{ text: `↩️ Отменить действие ${t}`, callback_data: `u:${n}:${sfx}` }];
+  return [{ text: `✅ Готов ${t}`, callback_data: `d:${n}:${sfx}` }, { text: `❌ Отменить ${t}`, callback_data: `x:${n}:${sfx}` }];
+}
+async function allView(env, extra = []) {
+  const act = await activeOrders(env); const ords = await getOrders(env);
+  const keep = extra.filter(n => ords[n] && !act.some(o => o.num === n)).map(n => ({ ...ords[n].full, st: statusOf(ords[n]) }));
+  const list = [...act, ...keep].sort((a, b2) => (a.date + a.time).localeCompare(b2.date + b2.time)).slice(0, 25);
+  let text = `<b>📦 Все активные заказы · ${act.length}</b>`; let day = '';
+  if (!list.length) text += '\n\nАктивных заказов нет.';
+  for (const o of list) { if (o.date !== day) { day = o.date; text += `\n\n<b>— ${esc(dayName(o.date))} —</b>`; } text += '\n' + ordLine(o) + '\n'; }
+  if (act.length > 25) text += `\n…и ещё ${act.length - 25}. Смотрите по дням.`;
+  const kb = list.map(o => ordButtons(o, 'a'));
+  kb.push([{ text: '‹ Меню', callback_data: 'menu' }]);
+  return { text: text.slice(0, 4000), kb, finished: keep.map(o => o.num) };
 }
 
 async function listView(env, date) {
@@ -256,22 +298,94 @@ async function orderAction(env, act, ref) {
 
 function typesView() {
   return {
-    text: '<b>Цены</b>\n\nВыберите раздел. Цены указаны «от» — для Apple; для других брендов сайт сам пересчитывает их, как раньше.',
+    text: '<b>🛠 Услуги, цены и фото</b>\n\nВыберите раздел.',
     kb: [...Object.entries(CATALOG).map(([k, v]) => [{ text: v.name, callback_data: 'pt:' + k }]), [{ text: '‹ Меню', callback_data: 'menu' }]],
   };
 }
 async function servicesView(env, type) {
-  const cfg = await getCfg(env); const T = CATALOG[type]; const ov = cfg.prices[type] || {};
-  const kb = T.items.map(([n, p], i) => [{ text: `${ov[n] != null ? '✏️ ' : ''}${n} · ${num(ov[n] ?? p)} ₽`.slice(0, 60), callback_data: `ps:${type}:${i}` }]);
+  const cfg = await getCfg(env); const T = CATALOG[type]; const items = allItems(cfg, type); const im = cfg.imgs[type] || {};
+  const kb = items.map((x, i) => [{ text: `${x.hidden ? '🙈 ' : ''}${x.added ? '➕ ' : ''}${x.changed ? '✏️ ' : ''}${im[x.n] ? '🖼 ' : ''}${x.n} · ${x.p ? num(x.p) + ' ₽' : 'бесплатно'}`.slice(0, 60), callback_data: `sv:${type}:${i}` }]);
+  kb.push([{ text: '➕ Добавить услугу', callback_data: 'ad:' + type }]);
   kb.push([{ text: '‹ Разделы', callback_data: 'pt' }, { text: '‹ Меню', callback_data: 'menu' }]);
-  return { text: `<b>${esc(T.name)} · цены</b>\n\nНажмите на услугу, чтобы изменить цену. ✏️ — цена изменена.`, kb };
+  return { text: `<b>${esc(T.name)}</b>\n\nНажмите на услугу, чтобы изменить цену, фото или скрыть её.\n🙈 скрыта · ➕ добавлена · ✏️ цена изменена · 🖼 своё фото`, kb };
+}
+async function serviceCard(env, type, i) {
+  const cfg = await getCfg(env); const x = allItems(cfg, type)[i]; if (!x) return servicesView(env, type);
+  const hasImg = !!(cfg.imgs[type] || {})[x.n];
+  const text = [`<b>${esc(x.n)}</b>`, `${esc(CATALOG[type].name)} · ${esc(x.c)}`, '',
+    `💰 Цена: от <b>${x.p ? rub(x.p) : 'бесплатно'}</b>${x.changed ? ` (исходная ${rub(x.base)})` : ''}`,
+    `🖼 Фото: ${hasImg ? 'своё' : x.added ? 'нет' : 'исходное'}`,
+    `👁 На сайте: ${x.hidden ? '<b>скрыта</b>' : 'показывается'}`].join('\n');
+  const kb = [[{ text: '💰 Изменить цену', callback_data: `ps:${type}:${i}` }, { text: '🖼 Загрузить фото', callback_data: `ph:${type}:${i}` }]];
+  const row = [];
+  if (x.changed) row.push({ text: '↩️ Исходная цена', callback_data: `pr:${type}:${i}` });
+  if (hasImg) row.push({ text: '↩️ Убрать своё фото', callback_data: `pz:${type}:${i}` });
+  if (row.length) kb.push(row);
+  kb.push([x.added ? { text: '🗑 Удалить услугу', callback_data: `rm:${type}:${i}` } : { text: x.hidden ? '👁 Показать на сайте' : '🙈 Скрыть с сайта', callback_data: `hd:${type}:${i}` }]);
+  kb.push([{ text: '‹ К списку', callback_data: 'pt:' + type }, { text: '‹ Меню', callback_data: 'menu' }]);
+  return { text, kb };
+}
+
+/* фото услуг храним в двоичном виде: в KV (до 25 МБ) или, если KV не подключено, в D1 частями */
+async function imgPut(env, key, bytes, type) {
+  if (env.DB) { await env.DB.put('img:' + key, bytes, { metadata: { t: type } }); return; }
+  await sqlInit(env);
+  await env.SQL.prepare('CREATE TABLE IF NOT EXISTS imgs (k TEXT, i INTEGER, t TEXT, v BLOB, PRIMARY KEY (k, i))').run();
+  await env.SQL.prepare('DELETE FROM imgs WHERE k = ?').bind(key).run();
+  const CH = 1800000;
+  for (let i = 0, n = 0; i < bytes.length; i += CH, n++) await env.SQL.prepare('INSERT INTO imgs (k, i, t, v) VALUES (?, ?, ?, ?)').bind(key, n, type, bytes.slice(i, i + CH)).run();
+}
+async function imgGet(env, key) {
+  if (env.DB) {
+    const r = await env.DB.getWithMetadata('img:' + key, { type: 'arrayBuffer' }).catch(() => null);
+    if (r && r.value && r.metadata && r.metadata.t) return { t: r.metadata.t, bytes: new Uint8Array(r.value) };
+  }
+  if (env.SQL) {
+    try {
+      await sqlInit(env);
+      const rs = await env.SQL.prepare('SELECT t, v FROM imgs WHERE k = ? ORDER BY i').bind(key).all();
+      if (rs.results && rs.results.length) {
+        const parts = rs.results.map(x => x.v instanceof ArrayBuffer ? new Uint8Array(x.v) : x.v instanceof Uint8Array ? x.v : Uint8Array.from(x.v));
+        const out = new Uint8Array(parts.reduce((a, p) => a + p.length, 0)); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+        return { t: rs.results[0].t, bytes: out };
+      }
+    } catch (e) {}
+  }
+  const raw = await store(env).get('img:' + key).catch(() => null); // старый формат (base64)
+  if (raw) { try { const { t, d } = JSON.parse(raw); const bin = atob(d); const b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return { t, bytes: b }; } catch (e) {} }
+  return null;
+}
+async function imgDel(env, key) {
+  if (env.DB) await env.DB.delete('img:' + key).catch(() => {});
+  if (env.SQL) { try { await sqlInit(env); await env.SQL.prepare('DELETE FROM imgs WHERE k = ?').bind(key).run(); } catch (e) {} }
+  await store(env).delete('img:' + key).catch(() => {});
+}
+
+/* загрузка фото услуги из Telegram */
+async function savePhoto(env, msg, pend) {
+  let fileId = null;
+  if (msg.photo && msg.photo.length) { const ps = [...msg.photo].sort((a, b) => a.width - b.width); fileId = ps[ps.length - 1].file_id; } // самое большое качество
+  else if (msg.document && /^image\/(jpeg|png|webp)$/.test(msg.document.mime_type || '')) fileId = msg.document.file_id;
+  if (!fileId) return 'Это не фото. Пришлите картинку (фото или файлом JPG/PNG/WEBP). /cancel — отмена.';
+  const f = await tg(env, 'getFile', { file_id: fileId });
+  if (!f.ok) return 'Telegram не отдаёт файлы больше 20 МБ. Пришлите фото поменьше.';
+  if (f.result.file_size > 20000000) return 'Фото больше 20 МБ — Telegram не даёт ботам такие файлы. Пришлите поменьше.';
+  const r = await fetch(`https://api.telegram.org/file/bot${env.BOT_TOKEN}/${f.result.file_path}`);
+  if (!r.ok) return 'Не удалось скачать фото, попробуйте ещё раз.';
+  const buf = new Uint8Array(await r.arrayBuffer());
+  const type = /\.png$/i.test(f.result.file_path) ? 'image/png' : /\.webp$/i.test(f.result.file_path) ? 'image/webp' : 'image/jpeg';
+  const cfg = await getCfg(env); const x = allItems(cfg, pend.type)[pend.i]; if (!x) return 'Услуга не найдена.';
+  await imgPut(env, imgKey(pend.type, x.n), buf, type);
+  cfg.imgs[pend.type] = cfg.imgs[pend.type] || {}; cfg.imgs[pend.type][x.n] = Date.now();
+  await putJ(env, 'cfg', cfg);
+  return null;
 }
 
 /* ---------- обработка бота ---------- */
 async function onUpdate(env, u) {
   const adm = await admins(env);
-  if (u.message && u.message.text) {
-    const m = u.message, chat = String(m.chat.id), text = m.text.trim();
+  if (u.message && (u.message.text || u.message.photo || u.message.document)) {
+    const m = u.message, chat = String(m.chat.id), text = (m.text || m.caption || '').trim();
     const isAdm = adm.includes(chat);
     if (text.startsWith('/start')) {
       const pass = text.split(/\s+/)[1] || '';
@@ -287,16 +401,41 @@ async function onUpdate(env, u) {
     if (!isAdm) return;
     const pend = await getJ(env, 'pend:' + chat, null);
     if (text === '/cancel') { await store(env).delete('pend:' + chat); return send(env, chat, 'Отменено.'); }
+    if (m.photo || m.document) {
+      if (!pend || pend.k !== 'photo') return send(env, chat, 'Чтобы поменять фото услуги: 📋 Меню → 🛠 Услуги → выберите услугу → «🖼 Загрузить фото».');
+      const err = await savePhoto(env, m, pend); if (err) return send(env, chat, err);
+      await store(env).delete('pend:' + chat);
+      await send(env, chat, '✅ Фото сохранено. На сайте появится в течение минуты.');
+      const c = await serviceCard(env, pend.type, pend.i); return send(env, chat, c.text, c.kb);
+    }
     if (pend && !text.startsWith('/')) {
       if (pend.k === 'price') {
         const raw = parseInt(text.replace(/\D/g, ''), 10);
         if (!text.replace(/\D/g, '') || isNaN(raw) || raw > 1000000) return send(env, chat, 'Пришлите цену числом, например <b>4500</b>. /cancel — отмена.');
         const v = Math.round(raw / 100) * 100; // сайт показывает цены с точностью до сотен
-        const cfg = await getCfg(env); const [n] = CATALOG[pend.type].items[pend.i];
-        cfg.prices[pend.type] = cfg.prices[pend.type] || {}; cfg.prices[pend.type][n] = v;
+        const cfg = await getCfg(env); const x = allItems(cfg, pend.type)[pend.i]; if (!x) return send(env, chat, 'Услуга не найдена.');
+        if (x.added) { const a = cfg.added[pend.type].find(z => z.n === x.n); if (a) a.p = v; }
+        else { cfg.prices[pend.type] = cfg.prices[pend.type] || {}; cfg.prices[pend.type][x.n] = v; }
         await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
-        await send(env, chat, `✅ «${esc(n)}» — теперь от <b>${rub(v)}</b>. На сайте обновится в течение минуты.`);
-        const s = await servicesView(env, pend.type); return send(env, chat, s.text, s.kb);
+        await send(env, chat, `✅ «${esc(x.n)}» — теперь от <b>${rub(v)}</b>. На сайте обновится в течение минуты.`);
+        const c = await serviceCard(env, pend.type, pend.i); return send(env, chat, c.text, c.kb);
+      }
+      if (pend.k === 'addname') {
+        const name = text.replace(/\s+/g, ' ').slice(0, 60);
+        if (name.length < 3) return send(env, chat, 'Название слишком короткое. Пришлите название услуги. /cancel — отмена.');
+        const cfg = await getCfg(env); if (allItems(cfg, pend.type).some(x => x.n.toLowerCase() === name.toLowerCase())) return send(env, chat, 'Такая услуга уже есть. Пришлите другое название. /cancel — отмена.');
+        await putJ(env, 'pend:' + chat, { ...pend, k: 'addprice', name }, { expirationTtl: 900 });
+        return send(env, chat, `«${esc(name)}»\n\nТеперь пришлите цену «от» числом (например <b>2500</b>, 0 — бесплатно).`);
+      }
+      if (pend.k === 'addprice') {
+        const raw = parseInt(text.replace(/\D/g, ''), 10);
+        if (!text.replace(/\D/g, '') || isNaN(raw) || raw > 1000000) return send(env, chat, 'Пришлите цену числом, например <b>2500</b>. /cancel — отмена.');
+        const v = Math.round(raw / 100) * 100;
+        const cfg = await getCfg(env); cfg.added[pend.type] = cfg.added[pend.type] || []; cfg.added[pend.type].push({ n: pend.name, c: pend.cat, p: v });
+        await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
+        const idx = allItems(cfg, pend.type).findIndex(x => x.n === pend.name);
+        await send(env, chat, `✅ Услуга «${esc(pend.name)}» добавлена в «${esc(pend.cat)}» — от <b>${v ? rub(v) : 'бесплатно'}</b>. Можно сразу загрузить для неё фото.`);
+        const c = await serviceCard(env, pend.type, idx); return send(env, chat, c.text, c.kb);
       }
       if (pend.k === 'closemsg') {
         const cfg = await getCfg(env); cfg.closed = true; cfg.closedMsg = text.slice(0, 200);
@@ -329,7 +468,7 @@ async function onUpdate(env, u) {
     if (!adm.includes(chat)) return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, text: 'Нет доступа' });
     let toast = '';
     const show = async v => { if (v.finished) { if (v.finished.length) await putJ(env, 'seen:' + chat, v.finished, { expirationTtl: 86400 }); else await store(env).delete('seen:' + chat); } return edit(env, chat, mid, v.text, v.kb); };
-    if (!/:l$/.test(d)) await hideFinished(env, chat);
+    if (!/:[la]$/.test(d)) await hideFinished(env, chat);
     const [cmd, a1, a2] = [d.split(':')[0], d.split(':')[1], d.split(':').slice(2).join(':')];
 
     if (cmd === 'menu') await show(await menu(env));
@@ -357,22 +496,43 @@ async function onUpdate(env, u) {
       const { b } = await getBookings(env); const o = b[a1]?.[a2];
       toast = o ? `${a2}: ${o.name}, ${fmtPhone(o.phone)}` : 'Записи нет';
     } else if (cmd === 'pt') await show(a1 ? await servicesView(env, a1) : typesView());
+    else if (cmd === 'la') await show(await allView(env));
+    else if (cmd === 'sv') await show(await serviceCard(env, a1, +a2));
     else if (cmd === 'ps') {
-      const T = CATALOG[a1]; const i = +a2; const [n, p] = T.items[i]; const cfg = await getCfg(env); const cur = cfg.prices[a1]?.[n];
-      await putJ(env, 'pend:' + chat, { k: 'price', type: a1, i }, { expirationTtl: 900 });
-      await send(env, chat, `<b>${esc(n)}</b> (${esc(T.name)})\nСейчас: от ${rub(cur ?? p)}${cur != null ? `, исходная ${rub(p)}` : ''}\n\nПришлите новую цену числом (округляется до сотен). /cancel — отмена.`,
-        cur != null ? [[{ text: `↩️ Вернуть исходную (${num(p)} ₽)`, callback_data: `pr:${a1}:${i}` }]] : undefined);
-    } else if (cmd === 'pr') {
-      const T = CATALOG[a1]; const [n, p] = T.items[+a2]; const cfg = await getCfg(env);
-      if (cfg.prices[a1]) { delete cfg.prices[a1][n]; if (!Object.keys(cfg.prices[a1]).length) delete cfg.prices[a1]; }
-      await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
-      await edit(env, chat, mid, `✅ «${esc(n)}» — снова от <b>${rub(p)}</b>.`);
+      const cfg = await getCfg(env); const x = allItems(cfg, a1)[+a2]; if (!x) { toast = 'Услуга не найдена'; }
+      else {
+        await putJ(env, 'pend:' + chat, { k: 'price', type: a1, i: +a2 }, { expirationTtl: 900 });
+        await send(env, chat, `<b>${esc(x.n)}</b>\nСейчас: от ${x.p ? rub(x.p) : 'бесплатно'}\n\nПришлите новую цену числом (округляется до сотен). /cancel — отмена.`);
+      }
+    } else if (cmd === 'ph') {
+      const cfg = await getCfg(env); const x = allItems(cfg, a1)[+a2];
+      if (!x) toast = 'Услуга не найдена';
+      else { await putJ(env, 'pend:' + chat, { k: 'photo', type: a1, i: +a2 }, { expirationTtl: 900 }); await send(env, chat, `🖼 Пришлите фото для «${esc(x.n)}» одной картинкой.\nЛучше квадратное или 4:3, предмет по центру, тёмный фон. /cancel — отмена.`); }
+    } else if (cmd === 'pr' || cmd === 'pz' || cmd === 'hd' || cmd === 'rm') {
+      const cfg = await getCfg(env); const x = allItems(cfg, a1)[+a2];
+      if (!x) toast = 'Услуга не найдена';
+      else {
+        if (cmd === 'pr' && cfg.prices[a1]) { delete cfg.prices[a1][x.n]; if (!Object.keys(cfg.prices[a1]).length) delete cfg.prices[a1]; toast = 'Цена возвращена'; }
+        if (cmd === 'pz' && cfg.imgs[a1]) { delete cfg.imgs[a1][x.n]; await imgDel(env, imgKey(a1, x.n)); toast = 'Своё фото убрано'; }
+        if (cmd === 'hd') { const r = new Set(cfg.removed[a1] || []); r.has(x.n) ? r.delete(x.n) : r.add(x.n); cfg.removed[a1] = [...r]; toast = r.has(x.n) ? 'Скрыта с сайта' : 'Снова на сайте'; }
+        if (cmd === 'rm') { cfg.added[a1] = (cfg.added[a1] || []).filter(z => z.n !== x.n); if (cfg.imgs[a1]) delete cfg.imgs[a1][x.n]; await imgDel(env, imgKey(a1, x.n)); toast = 'Услуга удалена'; }
+        await putJ(env, 'cfg', cfg); await store(env).delete('pend:' + chat);
+        await show(cmd === 'rm' ? await servicesView(env, a1) : await serviceCard(env, a1, +a2));
+      }
+    } else if (cmd === 'ad') {
+      const T = CATALOG[a1];
+      await show({ text: `<b>➕ Новая услуга · ${esc(T.name)}</b>\n\nВ какой раздел добавить?`, kb: [...T.cats.map((c, ci) => [{ text: c, callback_data: `ac:${a1}:${ci}` }]), [{ text: '‹ Назад', callback_data: 'pt:' + a1 }]] });
+    } else if (cmd === 'ac') {
+      const cat = CATALOG[a1].cats[+a2];
+      await putJ(env, 'pend:' + chat, { k: 'addname', type: a1, cat }, { expirationTtl: 900 });
+      await send(env, chat, `➕ Раздел «${esc(cat)}».\n\nПришлите название новой услуги. /cancel — отмена.`);
     } else if (['d', 'g', 'x', 'u'].includes(cmd)) {
-      const ref = d.slice(2).replace(/:l$/, ''); const fromList = d.endsWith(':l');
+      const ref = d.slice(2).replace(/:[la]$/, ''); const fromList = d.endsWith(':l'); const fromAll = d.endsWith(':a');
       const r = await orderAction(env, cmd, ref); toast = r.toast;
       if (r.o) {
         const st = statusOf(r.o);
-        if (fromList) await show(await listView(env, r.o.date));
+        if (fromAll) { const prev = await getJ(env, 'seen:' + chat, []); await show(await allView(env, [...new Set([...prev, r.num])])); }
+        else if (fromList) await show(await listView(env, r.o.date));
         else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, ST_LINE[st] || ''), r.gone ? undefined : orderKb(r.num, st));
       }
     }
@@ -401,7 +561,14 @@ export default {
         const set = new Set([...(bl === 'all' ? SLOTS : Array.isArray(bl) ? bl : []), ...Object.keys(b[d] || {})]);
         if (set.size) busy[d] = [...set].sort();
       }
-      return json({ closed: cfg.closed, closedMsg: cfg.closed ? (cfg.closedMsg || DEFAULT_CLOSED) : '', prices: cfg.prices, busy, today: t });
+      const imgs = {}; for (const [ty, m] of Object.entries(cfg.imgs)) for (const [n, v] of Object.entries(m)) (imgs[ty] = imgs[ty] || {})[n] = `${url.origin}/img/${imgKey(ty, n)}?v=${v}`;
+      return json({ closed: cfg.closed, closedMsg: cfg.closed ? (cfg.closedMsg || DEFAULT_CLOSED) : '', prices: cfg.prices, removed: cfg.removed, added: cfg.added, imgs, busy, today: t });
+    }
+
+    if (url.pathname.startsWith('/img/') && req.method === 'GET') {
+      const im = await imgGet(env, url.pathname.slice(5).replace(/[^\w-]/g, ''));
+      if (!im) return new Response('not found', { status: 404, headers: CORS });
+      return new Response(im.bytes, { headers: { ...CORS, 'Content-Type': im.t, 'Cache-Control': 'public, max-age=31536000, immutable' } });
     }
 
     if (url.pathname === '/status' && req.method === 'GET') {

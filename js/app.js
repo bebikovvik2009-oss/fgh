@@ -137,7 +137,9 @@ $$('dialog.modal').forEach(d=>d.addEventListener('click',e=>{ if(e.target===d) d
 const SVC_IMG={phone:["assets/img/services/phone/01.jpg","assets/img/services/phone/02.jpg","assets/img/services/phone/03.jpg","assets/img/services/phone/04.jpg","assets/img/services/phone/05.jpg","assets/img/services/phone/06.jpg","assets/img/services/phone/07.jpg","assets/img/services/phone/08.jpg","assets/img/services/phone/09.jpg","assets/img/services/phone/10.jpg","assets/img/services/phone/11.jpg","assets/img/services/phone/12.jpg","assets/img/services/phone/13.jpg","assets/img/services/phone/14.jpg","assets/img/services/phone/15.jpg","assets/img/services/phone/16.jpg","assets/img/services/phone/17.jpg","assets/img/services/phone/18.jpg","assets/img/services/phone/19.jpg","assets/img/services/phone/20.jpg","assets/img/services/phone/21.jpg","assets/img/services/phone/22.jpg","assets/img/services/phone/23.jpg","assets/img/services/phone/24.jpg"],laptop:["assets/img/services/laptop/01.jpg","assets/img/services/laptop/02.jpg","assets/img/services/laptop/03.jpg","assets/img/services/laptop/04.jpg","assets/img/services/laptop/05.jpg","assets/img/services/laptop/06.jpg","assets/img/services/laptop/07.jpg","assets/img/services/laptop/08.jpg","assets/img/services/laptop/09.jpg","assets/img/services/laptop/10.jpg","assets/img/services/laptop/11.jpg","assets/img/services/laptop/12.jpg"],tablet:["assets/img/services/tablet/01.jpg","assets/img/services/tablet/02.jpg","assets/img/services/tablet/03.jpg","assets/img/services/tablet/04.jpg","assets/img/services/tablet/05.jpg","assets/img/services/tablet/06.jpg","assets/img/services/tablet/07.jpg","assets/img/services/tablet/08.jpg","assets/img/services/tablet/09.jpg","assets/img/services/tablet/10.jpg","assets/img/services/tablet/11.jpg","assets/img/services/tablet/12.jpg"],console:["assets/img/services/console/01.jpg","assets/img/services/console/02.jpg","assets/img/services/console/03.jpg","assets/img/services/console/04.jpg","assets/img/services/console/05.jpg","assets/img/services/console/06.jpg","assets/img/services/console/07.jpg","assets/img/services/console/08.jpg","assets/img/services/console/09.jpg","assets/img/services/console/10.jpg","assets/img/services/console/11.jpg","assets/img/services/console/12.jpg"]};
 /* ===== услуги ===== */
 const svc={type:'phone',brand:'Apple',cat:null};
-function svcCats(){ return Object.keys(CATALOG[svc.type].cats); }
+function svcCats(){ return Object.entries(CATALOG[svc.type].cats).filter(([,c])=>c.items.some(it=>!it.hidden)).map(([n])=>n); }
+/* фото услуги: своё (загружено через бота) или исходное по порядку */
+function svcImg(type,name){ const o=SITE.imgs?.[type]?.[name]; if(o) return o; const m=(window._bimg=window._bimg||{}); if(!m[type]){ m[type]={}; let i=0; Object.values(CATALOG[type].cats).forEach(c=>c.items.forEach(it=>{ if(!it.added) m[type][it[0]]=i++; })); } const j=m[type][name]; return j==null?null:(SVC_IMG[type]||[])[j]; }
 const slug=c=>'cat-'+svcCats().indexOf(c);
 function renderSvcBars(){
   $('#types').innerHTML=TYPES.map(t=>`<button type="button" data-t="${t}" aria-pressed="${t===svc.type}">${ico(CATALOG[t].ico)}<span>${CATALOG[t].name}</span></button>`).join('');
@@ -154,10 +156,10 @@ function markCat(){
 }
 function renderDishes(){
   const T=CATALOG[svc.type], k=brandOf(svc.type,svc.brand).k;
-  let si=0; const pics=SVC_IMG[svc.type]||[];
-  $('#dishes').innerHTML=Object.entries(T.cats).map(([c,{i,items}],ci)=>`<section class="svc-sec" id="${slug(c)}">
+  const vis=svcCats();
+  $('#dishes').innerHTML=Object.entries(T.cats).filter(([c])=>vis.includes(c)).map(([c,{i,items}],ci)=>`<section class="svc-sec" id="${slug(c)}">
     <h3 class="svc-h"><span class="badge c-${tones[ci%4]}">${ico(i)}</span>${c}</h3>
-    <div class="svc-list">${items.map(([n,p,t,w,inc],j)=>{ const img=pics[si++]; return `<article class="svc-row" tabindex="0" aria-expanded="false">
+    <div class="svc-list">${items.map((it,j)=>{ if(it.hidden) return ''; const [n,p,t,w,inc]=it; const img=svcImg(svc.type,n); return `<article class="svc-row" tabindex="0" aria-expanded="false">
       <div class="svc-photo">${img?`<img class="svc-img" src="${img}" alt="${esc(n)}" loading="lazy" decoding="async">`:`<div class="svc-ph">${ico(i)}<span>Фото</span></div>`}
         <div class="svc-pop"><ul class="svc-meta">
           <li><span>${ico('clock')}Срок</span><span>${t}</span></li>
@@ -475,7 +477,7 @@ function findServices(query,type=bk.type,brand=bk.brand){
   const STOP=['ремонт','скольк','стоит','будет','стоимо','нужно','телефо','ноутбу','планше','консол','почини','сломал','можно','какая','цена','запиши'];
   const words=q.split(/[^a-zа-яё0-9-]+/).filter(w=>w.length>2).map(w=>w.slice(0,6)).filter(w=>!STOP.includes(w));
   const res=[];
-  Object.entries(T.cats).forEach(([c,{items}])=>items.forEach(([n,p,t,w,inc])=>{
+  Object.entries(T.cats).forEach(([c,{items}])=>items.forEach((it)=>{ if(it.hidden) return; const [n,p,t,w,inc]=it;
     const hay=(n+' '+inc+' '+c).toLowerCase();
     let sc=0; words.forEach(x=>{ if(hay.includes(x)) sc+= n.toLowerCase().includes(x)?2:1; });
     T.issues.forEach(([lbl,ic,ii])=>{ if(q.includes(lbl.toLowerCase())&&T.cats[ic].items[ii][0]===n) sc+=6; });
@@ -815,11 +817,19 @@ const BASE_PRICES=Object.fromEntries(Object.entries(CATALOG).map(([t,T])=>[t,Obj
 function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.hidden=false; clearTimeout(showToast.t); showToast.t=setTimeout(()=>t.hidden=true,6000); }
 function applyState(st){
   SITE.closed=!!st.closed; SITE.closedMsg=st.closedMsg||''; SITE.busy=st.busy||{};
-  const pr=st.prices||{};
-  for(const [t,T] of Object.entries(CATALOG)) for(const c of Object.values(T.cats)) for(const it of c.items){ const v=pr[t]?.[it[0]]; it[1]=v!=null?+v:BASE_PRICES[t][it[0]]; }
+  const pr=st.prices||{}, rm=st.removed||{}, ad=st.added||{};
+  const sig=JSON.stringify([pr,rm,ad,st.imgs||{}]); const catChanged=sig!==applyState.sig; applyState.sig=sig;
+  SITE.imgs=st.imgs||{};
+  if(catChanged) for(const [t,T] of Object.entries(CATALOG)){
+    for(const c of Object.values(T.cats)) c.items=c.items.filter(it=>!it.added);
+    for(const c of Object.keys(T.cats)) if(T.cats[c].added&&!T.cats[c].items.length) delete T.cats[c];
+    for(const c of Object.values(T.cats)) for(const it of c.items){ const v=pr[t]?.[it[0]]; it[1]=v!=null?+v:BASE_PRICES[t][it[0]]; it.hidden=(rm[t]||[]).includes(it[0]); }
+    for(const a of (ad[t]||[])){ if(!a||!a.n) continue; if(!T.cats[a.c]) T.cats[a.c]={i:'wrench',items:[],added:true}; const it=[a.n,+a.p||0,a.time||'уточняйте','уточняйте',a.inc||'Стоимость и срок уточнит мастер после осмотра']; it.added=true; T.cats[a.c].items.push(it); }
+  }
+  if(catChanged){ try{ renderSvcBars(); }catch(e){} }
   const b=$('#closedBanner'); b.hidden=!SITE.closed; b.querySelector('span').textContent=SITE.closedMsg;
   try{ paintOpen(); }catch(e){}
-  try{ renderDishes(); }catch(e){}
+  if(catChanged){ try{ renderDishes(); }catch(e){} }
   try{ if(!$('#selfPane').hidden&&!$('#selfForm').hidden) renderSelf(); renderSummary(); }catch(e){}
 }
 async function loadState(){
