@@ -103,6 +103,7 @@ const FINAL = ['cancelled', 'done', 'issued'];
 function statusOf(o) { if (!o) return null; if (FINAL.includes(o.status)) return o.status; return started(o.date, o.time) ? 'repair' : 'new'; }
 const ST_LABEL = { new: '🕓 Принят', repair: '🔧 В ремонте', done: '✅ Готов к выдаче', issued: '📦 Выдан', cancelled: '❌ Отменён' };
 const ST_LINE = { done: '✅ <b>Готов к выдаче</b>', issued: '📦 <b>Выдан</b> — заказ закрыт', cancelled: '❌ <b>Отменена</b> — время снова свободно' };
+function stLine(o, st) { return st === 'cancelled' && o && o.byClient ? '❌ <b>Клиент сам отменил запись</b> — время снова свободно' : (ST_LINE[st] || ''); }
 function orderKb(num, st) {
   if (st === 'done') return [[{ text: '📦 Выдан', callback_data: 'g:' + num }], [{ text: '↩️ Отменить действие', callback_data: 'u:' + num }]];
   if (st === 'issued' || st === 'cancelled') return [[{ text: '↩️ Отменить действие', callback_data: 'u:' + num }]];
@@ -137,7 +138,7 @@ function fmtPhone(p) {
 }
 /* ---------- текст записи ---------- */
 function orderText(o, status) {
-  const svc = Array.isArray(o.services) ? o.services.slice(0, 10) : [];
+  const svc = Array.isArray(o.services) ? o.services.slice(0, 30) : [];
   const tot = svc.reduce((a, x) => ({ lo: a.lo + (+x.lo || 0), hi: a.hi + (+x.hi || 0) }), { lo: 0, hi: 0 });
   const rr = (lo, hi) => lo === hi ? rub(lo) : `${num(lo)}–${rub(hi)}`;
   const block = (title, rows) => `<blockquote><b>${title}</b>\n${rows.filter(Boolean).join('\n')}</blockquote>`;
@@ -149,13 +150,21 @@ function orderText(o, status) {
       `📞 ${fmtPhone(o.phone)}`,
       o.contact === 'tg' ? `✈️ Написать в Telegram: ${esc(o.tg || '—')}` : '☎️ Перезвонить по телефону',
     ]),
-    block('📱 Устройство', [
-      esc(o.device),
-      o.problem ? `Проблема: ${esc(o.problem)}` : '',
-    ]),
-    block('🔧 Работы', [
-      ...(svc.length ? svc.map(x => `• ${esc(x.name)} — ${rr(+x.lo || 0, +x.hi || 0)}`) : ['• Бесплатная диагностика']),
-      svc.length ? `\n💰 <b>Итого: ${rr(tot.lo, tot.hi)}</b>` : '',
+    ...(Array.isArray(o.devices) && o.devices.length > 1 ? [
+      block(`📱 Устройства · ${o.devices.length}`, o.devices.map((d, i) => `<b>${i + 1}. ${esc(d.device)}</b>${d.problem ? `\nПроблема: ${esc(d.problem)}` : ''}`)),
+      block('🔧 Работы', [
+        ...o.devices.map((d, i) => `<b>${i + 1}.</b> ` + (d.services && d.services.length ? d.services.map(x => `${esc(x.name)} — ${rr(+x.lo || 0, +x.hi || 0)}`).join('\n     ') : 'Бесплатная диагностика')),
+        svc.length ? `\n💰 <b>Итого: ${rr(tot.lo, tot.hi)}</b>` : '',
+      ]),
+    ] : [
+      block('📱 Устройство', [
+        esc(o.device),
+        o.problem ? `Проблема: ${esc(o.problem)}` : '',
+      ]),
+      block('🔧 Работы', [
+        ...(svc.length ? svc.map(x => `• ${esc(x.name)} — ${rr(+x.lo || 0, +x.hi || 0)}`) : ['• Бесплатная диагностика']),
+        svc.length ? `\n💰 <b>Итого: ${rr(tot.lo, tot.hi)}</b>` : '',
+      ]),
     ]),
   ];
   if (status) parts.push(status);
@@ -290,7 +299,7 @@ async function orderAction(env, act, ref) {
       if ((busy && busy.num !== num) || bl === 'all' || (Array.isArray(bl) && bl.includes(o.time))) return { toast: `Время ${o.time} уже занято — восстановить запись нельзя`, o, num };
       b[o.date] = b[o.date] || {}; b[o.date][o.time] = o.full;
     }
-    o.status = o.hist.pop(); toast = `${num}: действие отменено`;
+    o.status = o.hist.pop(); o.byClient = false; toast = `${num}: действие отменено`;
   }
   ords[num] = o; await putJ(env, 'orders', ords); await putJ(env, 'bookings', b);
   return { toast, o, num, changed: true };
@@ -389,12 +398,15 @@ async function onUpdate(env, u) {
     const isAdm = adm.includes(chat);
     if (text.startsWith('/start')) {
       const pass = text.split(/\s+/)[1] || '';
+      if (!isAdm && pass) { // не больше 5 попыток пароля в час
+        if (await counter(env, 'pw:' + chat + ':' + Math.floor(Date.now() / 3600000), 3700) > 5) return;
+      }
       if (!isAdm && env.PASSWORD && pass === env.PASSWORD) {
         const a = await getJ(env, 'admins', []); if (!a.includes(chat)) a.push(chat); await putJ(env, 'admins', a);
         await sendKb(env, chat, '✅ Готово! Сюда будут приходить новые записи с сайта. Кнопка «📋 Меню» внизу — управление сайтом.');
         const v = await menu(env); return send(env, chat, v.text, v.kb);
       }
-      if (!isAdm) return send(env, chat, 'Это служебный бот сервиса GEZA SERVICE.');
+      if (!isAdm) { if (await counter(env, 'st:' + chat, 86400) > 1) return; return send(env, chat, 'Это служебный бот сервиса GEZA SERVICE.'); }
       await sendKb(env, chat, 'Кнопка «📋 Меню» внизу — управление сайтом.');
       const v0 = await menu(env); return send(env, chat, v0.text, v0.kb);
     }
@@ -533,7 +545,7 @@ async function onUpdate(env, u) {
         const st = statusOf(r.o);
         if (fromAll) { const prev = await getJ(env, 'seen:' + chat, []); await show(await allView(env, [...new Set([...prev, r.num])])); }
         else if (fromList) await show(await listView(env, r.o.date));
-        else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, ST_LINE[st] || ''), r.gone ? undefined : orderKb(r.num, st));
+        else if (r.o.full) await edit(env, chat, mid, orderText(r.o.full, stLine(r.o, st)), r.gone ? undefined : orderKb(r.num, st));
       }
     }
     return tg(env, 'answerCallbackQuery', { callback_query_id: q.id, ...(toast ? { text: toast } : {}) });
@@ -541,12 +553,16 @@ async function onUpdate(env, u) {
 }
 
 /* ---------- HTTP ---------- */
+/* ---------- защита от спама ---------- */
 const hits = new Map();
-function limited(ip) {
+function limited(ip, per = 10) { // быстрый фильтр в памяти: не больше N запросов в минуту с одного адреса
   const k = ip + ':' + Math.floor(Date.now() / 60000); const n = (hits.get(k) || 0) + 1; hits.set(k, n);
   if (hits.size > 5000) hits.clear();
-  return n > 10;
+  return n > per;
 }
+async function counter(env, key, ttl) { const n = (+(await store(env).get(key)) || 0) + 1; await store(env).put(key, String(n), { expirationTtl: ttl }); return n; }
+const phoneOk = p => { const d = String(p || '').replace(/\D/g, ''); return /^9\d{9}$/.test(d) || /^[78]9\d{9}$/.test(d); };
+const phoneKey = p => String(p || '').replace(/\D/g, '').slice(-10);
 
 export default {
   async fetch(req, env, ctx) {
@@ -579,18 +595,28 @@ export default {
     }
 
     if (url.pathname === '/order' && req.method === 'POST') {
-      if (limited(req.headers.get('CF-Connecting-IP') || 'x')) return json({ ok: false, error: 'rate' }, 429);
+      const ip = req.headers.get('CF-Connecting-IP') || 'x';
+      if (limited(ip, 5)) return json({ ok: false, error: 'rate' }, 429);
       const o = await req.json().catch(() => null);
       if (!o || typeof o !== 'object') return json({ ok: false, error: 'bad' }, 400);
+      // ловушки для ботов: скрытое поле заполнено или форму отправили быстрее чем за 4 секунды
+      if (o.website || (o.t != null && +o.t < 4000)) return json({ ok: true });
       const clean = {
         num: String(o.num || '').slice(0, 20), date: String(o.date || ''), time: String(o.time || ''),
         name: String(o.name || '').trim().slice(0, 60), phone: String(o.phone || '').slice(0, 30),
         contact: o.contact === 'tg' ? 'tg' : 'call', tg: String(o.tg || '').slice(0, 40),
         device: String(o.device || '').slice(0, 120), problem: String(o.problem || '').slice(0, 300),
-        services: (Array.isArray(o.services) ? o.services : []).slice(0, 10).map(x => ({ name: String(x.name || '').slice(0, 80), lo: +x.lo || 0, hi: +x.hi || 0 })),
+        services: (Array.isArray(o.services) ? o.services : []).slice(0, 30).map(x => ({ name: String(x.name || '').slice(0, 80), lo: +x.lo || 0, hi: +x.hi || 0 })),
+        devices: (Array.isArray(o.devices) ? o.devices : []).slice(0, 5).map(d => ({ device: String(d.device || '').slice(0, 120), problem: String(d.problem || '').slice(0, 300),
+          services: (Array.isArray(d.services) ? d.services : []).slice(0, 10).map(x => ({ name: String(x.name || '').slice(0, 80), lo: +x.lo || 0, hi: +x.hi || 0 })) })),
         created: new Date().toISOString(),
       };
-      if (!clean.num || !clean.name || clean.phone.replace(/\D/g, '').length < 10 || !SLOTS.includes(clean.time) || !inRange(clean.date)) return json({ ok: false, error: 'bad' }, 400);
+      if (clean.devices.length < 2) delete clean.devices;
+      if (!/^RM-\d{4}$/.test(clean.num) || clean.name.length < 2 || !phoneOk(clean.phone) || !SLOTS.includes(clean.time) || !inRange(clean.date)) return json({ ok: false, error: 'bad' }, 400);
+      if (/https?:\/\/|www\.|<[a-z]/i.test(clean.name + ' ' + clean.problem)) return json({ ok: false, error: 'bad' }, 400);
+      // не больше 6 записей в час с одного адреса и не больше 3 активных записей на один телефон
+      if (await counter(env, 'rl:ip:' + ip + ':' + Math.floor(Date.now() / 3600000), 3700) > 6) return json({ ok: false, error: 'rate' }, 429);
+      { const act = await activeOrders(env); if (act.filter(x => phoneKey(x.phone) === phoneKey(clean.phone)).length >= 3) return json({ ok: false, error: 'limit' }, 429); }
       const cfg = await getCfg(env);
       if (cfg.closed) return json({ ok: false, error: 'closed', closedMsg: cfg.closedMsg || DEFAULT_CLOSED }, 409);
       const bl = cfg.blocked[clean.date];
@@ -602,8 +628,29 @@ export default {
       ords[clean.num] = { status: 'new', hist: [], date: clean.date, time: clean.time, device: clean.device, services: clean.services.map(x => x.name).join(', '), full: clean };
       await putJ(env, 'orders', ords);
       const list = await admins(env);
-      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), orderKb(clean.num, 'new'))));
+      const notify = Promise.all(list.map(c => send(env, c, orderText(clean), orderKb(clean.num, 'new')).then(r => r && r.ok ? [c, r.result.message_id] : null)))
+        .then(async ids => { const os = await getOrders(env); if (os[clean.num]) { os[clean.num].msgs = ids.filter(Boolean); await putJ(env, 'orders', os); } });
       if (ctx && ctx.waitUntil) ctx.waitUntil(notify); else await notify;
+      return json({ ok: true });
+    }
+
+    if (url.pathname === '/cancel' && req.method === 'POST') {
+      const ip = req.headers.get('CF-Connecting-IP') || 'x';
+      if (limited(ip, 5)) return json({ ok: false, error: 'rate' }, 429);
+      const q = await req.json().catch(() => null) || {};
+      const numQ = String(q.num || '').toUpperCase(); const ords = await getOrders(env); const o = ords[numQ];
+      if (!o || !o.full || phoneKey(o.full.phone) !== phoneKey(q.phone)) return json({ ok: false, error: 'notfound' }, 404);
+      const st = statusOf(o);
+      if (st === 'cancelled') return json({ ok: true });
+      if (st !== 'new') return json({ ok: false, error: 'started', s: st }, 409);
+      o.hist = o.hist || []; o.hist.push(o.status); o.status = 'cancelled'; o.byClient = true; ords[numQ] = o;
+      const { b } = await getBookings(env);
+      if (b[o.date]?.[o.time]?.num === numQ) { delete b[o.date][o.time]; if (!Object.keys(b[o.date]).length) delete b[o.date]; }
+      await putJ(env, 'orders', ords); await putJ(env, 'bookings', b);
+      const text = orderText(o.full, stLine(o, 'cancelled')); const kb = orderKb(numQ, 'cancelled');
+      const jobs = (o.msgs && o.msgs.length) ? o.msgs.map(([c, m]) => edit(env, c, m, text, kb)) : [];
+      jobs.push(...(await admins(env)).map(c => send(env, c, `❌ Клиент отменил запись <b>${esc(numQ)}</b> на ${esc(ruDay(o.date))}, ${esc(o.time)}. Время снова свободно.`)));
+      const all = Promise.all(jobs); if (ctx && ctx.waitUntil) ctx.waitUntil(all); else await all;
       return json({ ok: true });
     }
 

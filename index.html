@@ -210,7 +210,8 @@
         <div class="block">
           <div class="block-head"><h3 class="block-title"><span class="badge c-accent step">1</span>Устройство и проблема</h3></div>
           <div class="form compact bform">
-            <div class="bsec"><span class="bsec-l">Техника</span><div class="seg tseg" id="bType" role="group" aria-label="Техника"></div></div>
+            <div class="bdevs" id="bDevs" hidden></div>
+            <div class="bsec"><span class="bsec-l" id="bTypeL">Техника</span><div class="seg tseg" id="bType" role="group" aria-label="Техника"></div></div>
             <div class="bsec"><span class="bsec-l">Устройство</span><div class="two">
               <div class="dd" id="ddBrand"><button type="button" class="dd-btn" aria-haspopup="listbox"><span class="dd-l">Бренд</span><span class="dd-v"></span><svg class="ico dd-c"><use href="#i-chev"/></svg></button><div class="dd-list" id="bBrand" role="listbox" hidden></div></div>
               <div class="dd" id="ddModel"><button type="button" class="dd-btn" aria-haspopup="listbox"><span class="dd-l">Модель</span><span class="dd-v"></span><svg class="ico dd-c"><use href="#i-chev"/></svg></button><div class="dd-list" id="bModels" role="listbox" hidden></div></div>
@@ -220,6 +221,7 @@
               <button type="button" class="linkbtn" id="bOwn"><svg class="ico"><use href="#i-plus"/></svg>Описать своими словами</button>
               <textarea class="input" id="bProblem" placeholder="Что случилось с устройством?" hidden></textarea>
               <p class="err-msg" id="askErr" hidden>Выберите или опишите проблему.</p></div>
+            <button type="button" class="linkbtn add-dev" id="bAddDev"><svg class="ico"><use href="#i-plus"/></svg>Добавить ещё устройство в эту заявку</button>
             <div class="bsec bfoot"><button class="btn primary" id="askBtn" type="button"><svg class="ico"><use href="#i-spark"/></svg>Узнать стоимость</button><button class="btn primary" id="bNext" type="button">Далее<svg class="ico"><use href="#i-arrow"/></svg></button></div>
           </div>
         </div>
@@ -268,6 +270,7 @@
         </div>
         <div class="pane" id="selfPane" hidden>
           <form class="form self" id="selfForm" novalidate>
+            <input id="hpWebsite" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
             <div class="field"><span class="lbl"><svg class="ico"><use href="#i-cal"/></svg>Дата</span><div class="chips" id="sfDates"></div><input class="input" type="date" id="sfDate" aria-label="Дата" hidden></div>
             <div class="field"><span class="lbl"><svg class="ico"><use href="#i-clock"/></svg>Время</span><div class="chips times-c" id="sfTimes"></div></div>
             <div class="two">

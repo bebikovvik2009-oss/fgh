@@ -227,7 +227,7 @@ function localStage(date,time){ if(!date) return 0; const n=spbNow(); const [h,m
 function orderState(num){
   const sv=ORDER_ST[num]; if(sv) return {s:sv.s, stage:sv.s==='cancelled'?-1:ST_IDX[sv.s]??0, closed:sv.s==='issued', date:sv.date, time:sv.time};
   const r=(typeof receipts!=='undefined'?receipts:[]).find(x=>x.num===num&&!x.demo);
-  if(r) return {s:'local', stage:localStage(r.date,r.time), date:r.date, time:r.time};
+  if(r) return r.cancelled?{s:'cancelled',stage:-1}:{s:'local', stage:localStage(r.date,r.time), date:r.date, time:r.time};
   if(demo[num]) return {s:'demo', stage:demo[num][2]};
   return null;
 }
@@ -369,7 +369,7 @@ renderPlaces();
 
 
 /* ===== запись: выбор устройства ===== */
-const bk={contact:'call',tg:'',extra:[],type:'phone',brand:'Apple',model:'',issues:[],services:[],service:null,date:null,time:null,name:'',phone:'',order:null};
+const bk={more:[],contact:'call',tg:'',extra:[],type:'phone',brand:'Apple',model:'',issues:[],services:[],service:null,date:null,time:null,name:'',phone:'',order:null};
 const WD=['вс','пн','вт','ср','чт','пт','сб'];
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const fromIso=s=>{const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d);};
@@ -506,7 +506,10 @@ function bookRepair({date,time,name,phone,service}){
   if(service&&!bk.service) bk.service=findServices(service)[0]||null;
   demo[num]=[deviceText(),bk.services.length?bk.services.map(x=>x.name).join(', '):(service||problemText()||'Диагностика'),0];
   $('#stNum').value=num; renderSummary();
-  addReceipt({num,date,time,contact:bk.contact,tg:bk.contact==='tg'?bk.tg:'',device:(()=>{const m=getModel();return `${CATALOG[bk.type].one} ${bk.brand}${m?', '+m:''}`;})(),services:(bk.services.length?bk.services:[]).map(x=>({name:x.name,lo:x.range.lo,hi:x.range.hi})),name,phone:String(phone)});
+  const curSvc=(bk.services.length?bk.services:[]).map(x=>({name:x.name,lo:x.range.lo,hi:x.range.hi}));
+  const devs=bk.more.length?[...bk.more.map(d=>({device:d.device,problem:d.problem,services:d.services})),{device:deviceFull(),problem:problemText(),services:curSvc}]:null;
+  addReceipt({num,date,time,contact:bk.contact,tg:bk.contact==='tg'?bk.tg:'',device:devs?devs.map(d=>d.device).join('; '):deviceFull(),services:devs?devs.flatMap(d=>d.services):curSvc,devices:devs||undefined,name,phone:String(phone)});
+  bk.more=[]; try{ renderDevs(); }catch(e){}
   return {order:num,date:human(date),time,contact:bk.contact,tg:bk.contact==='tg'?bk.tg:''};
 }
 
@@ -593,7 +596,7 @@ function rules(){
   const days=nextDays(8).map(d=>`${dayLabel(d)} = ${d}`).join('; ');
   return `Ты онлайн-помощник сервиса по ремонту техники «GEZA SERVICE». Пиши по-русски очень коротко: одно-два предложения, не больше 30 слов. Без markdown, звёздочек, списков и заголовков, без вступлений и повторов.
 Сегодня ${human(nextDays(1)[0])}, ${nextDays(1)[0]}. Ближайшие даты: ${days}. Адрес: Санкт-Петербург, Новосельковская улица, 3 (Коломяги, Приморский район). Сервис работает ежедневно с 10:00 до 21:00, диагностика бесплатная, есть курьер и ремонт при клиенте.
-Клиент выбрал: техника — ${CATALOG[bk.type].one}; бренд — ${bk.brand}; модель — ${getModel()||'не указана'}; проблема — ${problemText()||'не описана'}.
+Клиент выбрал: техника — ${CATALOG[bk.type].one}; бренд — ${bk.brand}; модель — ${getModel()||'не указана'}; проблема — ${problemText()||'не описана'}.${bk.more.length?` Также в этой же заявке: ${bk.more.map(d=>d.device+' ('+(d.problem||'диагностика')+')').join('; ')} — эти устройства уже выбраны, цены по ним учтены в квитанции.`:''}
 Как работать:
 1. Чтобы назвать цену, вызывай find_services отдельно для каждой проблемы клиента и называй вилку цены, срок и гарантию только из результата; если проблем несколько, назови и общую сумму. Ничего не придумывай. Если ничего не подошло, предложи бесплатную диагностику.
 Цены называй только в двух местах: в ответе на вопрос о цене и в финальном подтверждении записи. В сообщениях про дату, время, имя и телефон цены не повторяй и не пиши «уточнённые цены».
@@ -785,7 +788,7 @@ $('#selfForm').addEventListener('submit',e=>{
   }catch(ex){ err.textContent=ex.message; err.hidden=false; renderSelf(); }
 });
 $('#selfDone').addEventListener('click',e=>{ if(e.target.closest('#sfNew')) resetSelf(); });
-function resetSelf(){ $('#selfForm').reset(); $('#selfForm').hidden=false; $('#selfDone').hidden=true; Object.assign(sf,{date:null,time:null,other:false}); Object.assign(bk,{order:null}); renderSelf(); }
+function resetSelf(){ bk.more=[]; try{ renderDevs(); }catch(e){} $('#selfForm').reset(); $('#selfForm').hidden=false; $('#selfDone').hidden=true; Object.assign(sf,{date:null,time:null,other:false}); Object.assign(bk,{order:null}); renderSelf(); }
 let mode='ai';
 $('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-mode]'); if(!b)return; mode=b.dataset.mode;
   $$('#modeSeg [data-mode]').forEach(x=>x.setAttribute('aria-pressed',x===b));
@@ -846,14 +849,16 @@ function orderFailed(o,msg){
 }
 async function postOrder(o){
   let prob=''; try{ prob=problemText()||''; }catch(err){}
-  const body={...o, problem:o.services.some(x=>x.name===prob)?'':prob};
+  const body={...o, problem:o.devices?'':(o.services.some(x=>x.name===prob)?'':prob), t:Math.round(performance.now()), website:($('#hpWebsite')||{}).value||''};
   try{
     const r=await fetch(api('/order'),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>({}));
     if(r.ok&&j.ok) return;
     if(j.error==='closed'){ applyState({...SITE,closed:true,closedMsg:j.closedMsg,prices:{}}); orderFailed(o,j.closedMsg||'Запись временно закрыта.'); loadState(); return; }
     if(j.error==='busy'){ (SITE.busy[o.date]=SITE.busy[o.date]||[]).push(o.time); orderFailed(o,`Время ${o.time} только что заняли. Выберите, пожалуйста, другое.`); loadState(); return; }
-    orderFailed(o,'Не удалось отправить заявку. Попробуйте ещё раз или позвоните нам.');
+    if(j.error==='limit'){ orderFailed(o,'На этот номер уже есть 3 активные записи. Чтобы записаться ещё, позвоните нам.'); return; }
+    if(j.error==='rate'){ orderFailed(o,'Слишком много заявок подряд. Подождите немного или позвоните нам.'); return; }
+    orderFailed(o,'Не удалось отправить заявку. Проверьте номер телефона или позвоните нам.');
   }catch(e){ orderFailed(o,'Нет связи с сервером. Попробуйте ещё раз или позвоните нам.'); }
 }
 loadState();
@@ -900,6 +905,18 @@ function sendToTelegram(o){
 }
 function addReceipt(o){ receipts=[o,...receipts.filter(x=>x.num!==o.num)]; saveRc(); renderReceipts(); if(!o.demo){ if(ORDER_API) postOrder(o); else sendToTelegram(o); } }
 const maskPhone=p=>{ const d=String(p).replace(/\D/g,''); return d.length>=10?`+7 ••• •••-${d.slice(-4,-2)}-${d.slice(-2)}`:p; };
+async function cancelOrder(num){
+  const r=receipts.find(x=>x.num===num); if(!r) return;
+  const done=()=>{ ORDER_ST[num]={...(ORDER_ST[num]||{}),s:'cancelled',date:r.date,time:r.time}; booked.delete(r.date+' '+r.time); if(SITE.busy[r.date]) SITE.busy[r.date]=SITE.busy[r.date].filter(t=>t!==r.time); renderReceipts(); showToast(`Запись ${num} отменена. Будем рады видеть вас в другой раз!`); };
+  if(!ORDER_API){ r.cancelled=true; saveRc(); done(); return; }
+  try{
+    const res=await fetch(api('/cancel'),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({num,phone:r.phone})});
+    const j=await res.json().catch(()=>({}));
+    if(res.ok&&j.ok){ done(); loadState.t=0; loadState(); return; }
+    if(j.error==='started'){ await fetchStatus([num]); renderReceipts(); showToast('Ремонт уже начат — отменить можно только по телефону.'); return; }
+    renderReceipts(); showToast(j.error==='notfound'?'Запись не найдена на сервере. Позвоните нам, чтобы отменить.':'Не получилось отменить. Попробуйте ещё раз или позвоните нам.');
+  }catch(e){ renderReceipts(); showToast('Нет связи с сервером. Попробуйте ещё раз или позвоните нам.'); }
+}
 function rcCard(x){
   const os=orderState(x.num)||{stage:0}, st=os.closed?-2:os.stage, tot=x.services.reduce((a,s)=>({lo:a.lo+s.lo,hi:a.hi+s.hi}),{lo:0,hi:0});
   return `<article class="rc${st===-2?' rc-closed':st===-1?' rc-cancel':''}">
@@ -913,6 +930,7 @@ function rcCard(x){
     <div class="rc-svc">${(x.services.length?x.services:[{name:'Диагностика',lo:0,hi:0}]).map(s=>`<div><span>${esc(s.name)}</span><span>${rangeText({lo:s.lo,hi:s.hi})}</span></div>`).join('')}</div>
     <div class="rc-tot"><span>Итого</span><b>${x.services.length?rangeText(tot):'Бесплатно'}</b></div>
     <div class="rc-act"><button type="button" class="btn sm" data-rc-status="${x.num}">${ico('search')}Статус</button><button type="button" class="btn sm" data-rc-review="${x.num}">${ico('star')}Отзыв</button></div>
+    ${!x.demo&&st===0?`<button type="button" class="btn sm rc-cancel-btn" data-rc-cancel="${x.num}">${ico('x')}<span>Отменить запись</span></button>`:''}
   </article>`;
 }
 function renderReceipts(){
@@ -927,6 +945,9 @@ $('#rcFind').addEventListener('submit',e=>{
   $('#rcNum').value=''; const card=[...$$('.rc')].find(c=>c.textContent.includes(num)); card&&card.scrollIntoView({behavior:'smooth',block:'center'});
 });
 $('#rcList').addEventListener('click',e=>{
+  const c1=e.target.closest('[data-rc-cancel]');
+  if(c1){ if(!c1.classList.contains('armed')){ c1.classList.add('armed'); c1.querySelector('span').textContent='Точно отменить? Нажмите ещё раз'; clearTimeout(c1._t); c1._t=setTimeout(()=>{ c1.classList.remove('armed'); c1.querySelector('span').textContent='Отменить запись'; },4000); return; }
+    clearTimeout(c1._t); c1.disabled=true; c1.querySelector('span').textContent='Отменяем…'; cancelOrder(c1.dataset.rcCancel); return; }
   const s1=e.target.closest('[data-rc-status]'); if(s1){ $('#stNum').value=s1.dataset.rcStatus; openModal('statusModal'); $('#stForm').requestSubmit(); return; }
   const s2=e.target.closest('[data-rc-review]'); if(s2){ go('reviews'); $('#revOrder').value=s2.dataset.rcReview; checkOrder(); setTimeout(()=>$('#revForm').scrollIntoView({behavior:'smooth',block:'center'}),300); }
 });
@@ -994,6 +1015,33 @@ function needModel(){ const ok=!!getModel(); $('#modelErr').hidden=ok; $('#ddMod
   if(!ok){ if(bk.model===OTHER) $('#bModel').focus(); setBStep(1); const e=$('#modelErr'); e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); }
   return ok; }
 $('#bModel').addEventListener('input',()=>{ if(getModel()){ $('#modelErr').hidden=true; $('#ddModel .dd-btn').classList.remove('err'); } });
+/* несколько устройств в одной заявке */
+function deviceFull(){ const m=getModel(); return `${CATALOG[bk.type].one} ${bk.brand}${m?', '+m:''}`; }
+function curDeviceSnap(){
+  const byIssue=servicesForIssues(), free=$('#bProblem').value.trim();
+  const svcs=mergeServices(byIssue,free?findServices(free).slice(0,1):[]);
+  return {type:bk.type,device:deviceFull(),problem:problemText(),services:svcs.map(x=>({name:x.name,lo:x.range.lo,hi:x.range.hi}))};
+}
+function renderDevs(){
+  const box=$('#bDevs'); box.hidden=!bk.more.length;
+  box.innerHTML=bk.more.length?`<div class="bdevs-h">В заявке ${bk.more.length+1} ${plural(bk.more.length+1,['устройство','устройства','устройств'])}</div>`+bk.more.map((d,i)=>`<div class="bdev"><span class="bdev-n">${i+1}</span><div><b>${esc(d.device)}</b><span>${esc(d.problem||'Диагностика')}</span></div><button type="button" class="x" data-rmdev="${i}" aria-label="Убрать устройство">${ico('x')}</button></div>`).join('')+`<div class="bdev cur"><span class="bdev-n">${bk.more.length+1}</span><div><b>Сейчас выбираете</b><span>Укажите технику, модель и проблему ниже</span></div></div>`:'';
+  $('#bTypeL').textContent=bk.more.length?`Техника · устройство ${bk.more.length+1}`:'Техника';
+  $('#bAddDev').hidden=bk.more.length>=4;
+  try{ $('#bkChipT').textContent=bkChipText(); }catch(e){}
+}
+$('#bAddDev').addEventListener('click',()=>{
+  if(!needModel()) return;
+  if(!bk.issues.length&&!$('#bProblem').value.trim()){ const e=$('#askErr'); e.hidden=false; e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); return; }
+  $('#askErr').hidden=true;
+  bk.more.push(curDeviceSnap());
+  bk.issues=[]; bk.model=''; bk.extra=[]; $('#bModel').value=''; $('#bProblem').value=''; $('#bProblem').hidden=true; $('#bOwn').classList.remove('on');
+  renderBookPick(); renderDevs();
+  $('#bDevs').scrollIntoView({behavior:'smooth',block:'center'});
+  showToast('Устройство добавлено. Теперь выберите следующее.');
+});
+$('#bDevs').addEventListener('click',e=>{ const b=e.target.closest('[data-rmdev]'); if(!b) return; bk.more.splice(+b.dataset.rmdev,1); renderDevs(); });
+bkChipText=(f=>function(){ const t=f(); return bk.more.length?`${t} · +${bk.more.length} ${plural(bk.more.length,['устройство','устройства','устройств'])}`:t; })(bkChipText);
+renderDevs();
 /* запись на телефоне: два шага с переключателем */
 function bkChipText(){ const m=getModel(); const iss=bk.issues.length?bk.issues.join(', '):($('#bProblem').value.trim()||'проблема не выбрана'); return `${m||bk.brand} · ${iss}`; }
 function setBStep(n){ const v=$('#v-book'); v.dataset.bstep=n; $$('#bkSteps [data-bstep]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.bstep==n)); $('#bkChipT').textContent=bkChipText();

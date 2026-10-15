@@ -1243,3 +1243,40 @@ form.contact .send{height:54px;width:54px}
 .st-closed .ico{width:22px;height:22px;flex:none}
 .st-closed div{display:flex;flex-direction:column;gap:2px}.st-closed b{color:var(--fg);font-size:17px}.st-closed span{font-size:14px}
 .steps.is-closed{filter:grayscale(1)}
+
+/* несколько устройств */
+.bdevs{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
+.bdevs-h{font-size:13px;font-weight:600;color:var(--fg-3);text-transform:uppercase;letter-spacing:.06em}
+.bdev{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--bg-2);border:1px solid var(--line)}
+.bdev>div{display:flex;flex-direction:column;min-width:0;flex:1}
+.bdev b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdev span:not(.bdev-n){font-size:13.5px;color:var(--fg-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdev-n{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;background:rgba(52,89,184,.16);color:var(--accent);font-weight:700;font-size:14px}
+.bdev .x{width:32px;height:32px;flex:none}
+.bdev.cur{border-style:dashed;background:none}
+.add-dev{align-self:flex-start;margin:-4px 0 2px}
+/* отмена записи в квитанции */
+.rc-cancel-btn{width:100%;margin-top:8px;background:none;border:1px solid rgba(255,110,110,.28);color:#ff8a8a}
+.rc-cancel-btn.armed{background:rgba(220,70,70,.16);border-color:rgba(255,110,110,.55);color:#ffb0b0}
+
+.bdevs[hidden]+.bsec{border-top:0;padding-top:0}
+.bdevs:not([hidden]){padding-bottom:14px}
+@media (min-width:1001px){
+  .book2>.stack>.block:first-child .bform:has(.bdevs:not([hidden])){overflow-y:auto;scrollbar-width:thin;padding-right:4px}
+  .bdevs:not([hidden])~.bsec.grow{flex:1 0 auto;overflow:visible}
+  .bdev{padding:8px 10px}
+}
+
+/* тёмно-серый фон и матовые панели навигации */
+html,body{background:#000}
+.topbar{background:rgba(10,10,12,.55)!important;backdrop-filter:blur(26px) saturate(170%)!important;-webkit-backdrop-filter:blur(26px) saturate(170%)!important;border-bottom-color:rgba(255,255,255,.07)!important}
+.itb{background:rgba(26,26,30,.55)!important;backdrop-filter:blur(26px) saturate(180%)!important;-webkit-backdrop-filter:blur(26px) saturate(180%)!important;border-top:1px solid rgba(255,255,255,.08)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.topbar,.itb{background:rgba(24,24,27,.96)!important}}
+
+/* нижний хотбар на телефоне: крупнее, как верхний */
+@media (max-width:900px){
+  .itb{background:rgba(10,10,12,.55)!important;backdrop-filter:blur(26px) saturate(170%)!important;-webkit-backdrop-filter:blur(26px) saturate(170%)!important;border-top:1px solid rgba(255,255,255,.07)!important}
+  .itb-item{height:66px!important;padding-top:10px!important;gap:4px!important;font-size:12px!important;line-height:14px!important;font-weight:550!important}
+  .itb-ico{width:28px!important;height:28px!important}
+  main{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important}
+}
