@@ -1112,7 +1112,7 @@ $('#pick').addEventListener('click',()=>{ if(innerWidth<=640) $('#revForm').clas
   const SEL='.photo,.welcome,.qcard,.sec-title,.dev,.marquee,.svc-sec,.svc-h,.svc-row,.block,.bsec,.rv-sum,.rv-filter,.rv-item,.rv-more,.review,.rev-form,.place,.map,.rc,.rc-find,.rc-empty,.bk-steps,.bk-chip,.self .field,.footer';
   let els=[], vis=new Set(), raf=0;
   const io=new IntersectionObserver(es=>{ es.forEach(e=>{ if(e.isIntersecting) vis.add(e.target); else { vis.delete(e.target); reset(e.target); } }); tick(); },{rootMargin:'40px 0px'});
-  function reset(el){ el.style.translate=''; el.style.scale=''; el.style.filter=''; }
+  function reset(el){ el.style.translate=''; el.style.scale=''; el.style.filter=''; el.style.opacity=''; }
   function collect(){ io.disconnect(); vis.clear(); els.forEach(reset);
     const cand=[...document.querySelectorAll(SEL)].filter(el=>!el.closest('[hidden],dialog,.dd-list') && getComputedStyle(el).position!=='sticky' && !el.querySelector('.chat') && el.getClientRects().length && !(innerWidth<=760 && el.classList.contains('svc-sec')));
     const set=new Set(cand), picked=new Set();
@@ -1123,7 +1123,7 @@ $('#pick').addEventListener('click',()=>{ if(innerWidth<=640) $('#revForm').clas
       picked.add(el);
     });
     els=[...picked];
-    els.forEach(el=>{ el.style.willChange='translate,scale,filter'; io.observe(el); }); }
+    els.forEach(el=>{ el.style.willChange=innerWidth<=900?'translate,scale,opacity':'translate,scale,filter'; io.observe(el); }); }
   const cur=new WeakMap();
   function frame(){ raf=0;
     let top=(document.querySelector('.topbar')?.getBoundingClientRect().bottom||0);
@@ -1131,25 +1131,30 @@ $('#pick').addEventListener('click',()=>{ if(innerWidth<=640) $('#revForm').clas
     const bar=document.querySelector('.itb'); const bottom=innerHeight-(bar&&getComputedStyle(bar).display!=='none'?bar.offsetHeight:0);
     const Z=innerWidth<=640?64:84;                       // работает только у самых краёв
     let moving=false;
-    vis.forEach(el=>{
-      if(el.querySelector('.dd.open')){ reset(el); cur.delete(el); return; }
-      const r=el.getBoundingClientRect(), z=Math.min(Z,r.height*.8);
+    // сначала все замеры, потом все записи — без лишних пересчётов раскладки
+    const list=[...vis].map(el=>[el, el.querySelector('.dd.open')?null:el.getBoundingClientRect()]);
+    const mob=innerWidth<=900;
+    for(const [el,r] of list){
+      if(!r){ reset(el); cur.delete(el); continue; }
+      const z=Math.min(Z,r.height*.8);
       let t=0,dir=0;
       const dTop=r.bottom-top; if(dTop<z){ t=Math.max(t,1-Math.max(0,dTop)/z); dir=-1; }
       const dBot=bottom-r.top; if(dBot<z){ const k=1-Math.max(0,dBot)/z; if(k>t){ t=k; dir=1; } }
       t=Math.min(1,Math.max(0,t)); const e=t*t*t*(t*(t*6-15)+10);   // smootherstep
-      const tgt={ty:dir*10*e, sc:1-.04*e, op:1-.8*e, bl:3*e};
+      const tgt={ty:dir*10*e, sc:1-.04*e, op:1-.8*e, bl:mob?0:3*e};
       const c=cur.get(el)||{ty:0,sc:1,op:1,bl:0};
       for(const k in tgt){ c[k]+=(tgt[k]-c[k])*.22; if(Math.abs(tgt[k]-c[k])>.002) moving=true; else c[k]=tgt[k]; }
       cur.set(el,c);
-      if(c.op>.997&&c.bl<.05&&Math.abs(c.ty)<.05){ reset(el); return; }
+      if(c.op>.997&&c.bl<.05&&Math.abs(c.ty)<.05){ if(c.on){ reset(el); c.on=false; } continue; }
+      c.on=true;
       el.style.translate=`0 ${c.ty.toFixed(2)}px`; el.style.scale=c.sc.toFixed(4);
-      el.style.filter=`opacity(${c.op.toFixed(3)})${c.bl>.15?` blur(${c.bl.toFixed(2)}px)`:''}`;
-    });
+      if(mob) el.style.opacity=c.op.toFixed(3); else el.style.filter=`opacity(${c.op.toFixed(3)})${c.bl>.15?` blur(${c.bl.toFixed(2)}px)`:''}`;
+    }
     if(moving) tick();
   }
   function tick(){ if(!raf) raf=requestAnimationFrame(frame); }
-  addEventListener('scroll',tick,{passive:true}); addEventListener('resize',()=>{ collect(); tick(); });
+  let rw=innerWidth, rt=0;
+  addEventListener('scroll',tick,{passive:true}); addEventListener('resize',()=>{ if(innerWidth===rw&&innerWidth<=900) { tick(); return; } rw=innerWidth; clearTimeout(rt); rt=setTimeout(()=>{ collect(); tick(); },150); });
   window.scrollFx={refresh(){ requestAnimationFrame(()=>{ collect(); tick(); }); },get list(){ return els; }};
   collect(); tick();
 })();
@@ -1161,8 +1166,13 @@ go((location.hash||'#home').slice(1),false); paintOpen();
   const c=document.getElementById('energy'); if(!c||!c.getContext) return;
   const x=c.getContext('2d',{alpha:false});
   let W=0,H=0,DPR=1,G=22,pts=[];
+  let lastW=0;
   function resize(){
-    DPR=Math.min(2,window.devicePixelRatio||1); W=innerWidth; H=innerHeight;
+    const mob=innerWidth<=900;
+    if(mob&&innerWidth===lastW&&Math.abs(innerHeight-H)<160&&pts.length) return;   // адресная строка телефона — не пересоздаём
+    lastW=innerWidth;
+    DPR=Math.min(mob?1.5:2,window.devicePixelRatio||1); W=innerWidth; H=mob?Math.max(innerHeight,screen.height||0):innerHeight;
+    c.style.setProperty('height',mob?H+'px':'100%','important');
     c.width=Math.round(W*DPR); c.height=Math.round(H*DPR); x.setTransform(DPR,0,0,DPR,0,0);
     G=W<=640?13:16; pts=[];
     const ox=(W%G)/2+G/2, oy=(H%G)/2+G/2;
@@ -1183,10 +1193,15 @@ go((location.hash||'#home').slice(1),false); paintOpen();
     const r=Math.round(60+v*100), g=Math.round(100+v*95), b=Math.round(215+v*40), a=(.06+v*.8).toFixed(3);
     return `rgba(${r},${g},${b},${a})`; });
   const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let last=0;
+  let last=0, scrolling=0;
+  const mobile=()=>innerWidth<=900;
+  addEventListener('scroll',()=>{ scrolling=performance.now(); },{passive:true});
+  addEventListener('touchmove',()=>{ scrolling=performance.now(); },{passive:true});
   function frame(now){
     if(!still) requestAnimationFrame(frame);
-    if(!still && now-last<33) return; last=now;
+    if(document.hidden) return;
+    if(mobile()&&now-scrolling<220) return;              // на телефоне фон замирает, пока страница прокручивается
+    if(!still && now-last<14) return; last=now;            // до 60 кадров в секунду
     const t=now/1000, m=Math.max(W,H);
     const A=isl.map(b=>{
       const cx=(b.bx+b.ax*Math.sin(t*b.f1*2*Math.PI+b.p)+b.ax*.3*Math.sin(t*b.f2*2*Math.PI*.7+b.p*2))*W;

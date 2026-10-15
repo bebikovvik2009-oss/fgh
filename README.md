@@ -11,7 +11,7 @@
 - `assets/img/devices/` — карточки техники (телефон, ноутбук, планшет, консоль)
 - `assets/img/services/<тип>/NN.jpg` — фото услуг, номер = порядок услуги в разделе
 - `assets/icons/brands/` — логотипы брендов
-- `assets/icons/social/` — иконки Telegram и MAX
+- `assets/icons/social/` — иконка Telegram
 
 ## Заметки
 - Шрифт Inter грузится с Google Fonts (нужен интернет).
