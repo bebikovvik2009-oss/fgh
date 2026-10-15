@@ -536,6 +536,19 @@ function richText(t){
   return h;
 }
 function typing(){ return addMsg('bot','<span class="dots"><i></i><i></i><i></i></span>',true); }
+/* цены по нескольким устройствам */
+const sumSvc=list=>list.reduce((a,x)=>({lo:a.lo+(+x.lo||0),hi:a.hi+(+x.hi||0)}),{lo:0,hi:0});
+function curSvcFlat(list){ return (list||bk.services).map(x=>({name:x.name,lo:x.range?x.range.lo:x.lo,hi:x.range?x.range.hi:x.hi})); }
+function allDevices(list){ return [...bk.more,{device:deviceFull(),services:curSvcFlat(list)}]; }
+function orderSummary(){
+  const all=allDevices(); const tot=sumSvc(all.flatMap(d=>d.services));
+  if(all.length===1) return {text:bk.services.length?bk.services.map(x=>x.name).join(', '):'Диагностика',tot:bk.services.length?rangeText(tot):''};
+  return {text:all.map((d,i)=>`${i+1}) ${d.device}: ${d.services.length?d.services.map(x=>`${x.name} (${rangeText({lo:x.lo,hi:x.hi})})`).join(', '):'бесплатная диагностика'}`).join('; '),tot:tot.hi?rangeText(tot):''};
+}
+function devCard(d,i){
+  const list=d.services.length?d.services:[{name:'Бесплатная диагностика',lo:0,hi:0}];
+  return `<div class="pdev">${i+1}. ${esc(d.device)}</div><div class="pcard">${list.map(x=>`<div class="prow"><div><b>${esc(x.name)}</b></div><em>${rangeText({lo:x.lo,hi:x.hi})}</em></div>`).join('')}</div>`;
+}
 function priceCard(list){
   return `<div class="pcard">${list.map(s=>`<div class="prow"><div><b>${esc(s.name)}</b><span>${esc(s.time)} · гарантия ${esc(s.warranty)}</span></div><em${list.length===1?' class="total"':''}>${esc(s.price)}</em></div>`).join('')}</div>`;
 }
@@ -596,7 +609,7 @@ function rules(){
   const days=nextDays(8).map(d=>`${dayLabel(d)} = ${d}`).join('; ');
   return `Ты онлайн-помощник сервиса по ремонту техники «GEZA SERVICE». Пиши по-русски очень коротко: одно-два предложения, не больше 30 слов. Без markdown, звёздочек, списков и заголовков, без вступлений и повторов.
 Сегодня ${human(nextDays(1)[0])}, ${nextDays(1)[0]}. Ближайшие даты: ${days}. Адрес: Санкт-Петербург, Новосельковская улица, 3 (Коломяги, Приморский район). Сервис работает ежедневно с 10:00 до 21:00, диагностика бесплатная, есть курьер и ремонт при клиенте.
-Клиент выбрал: техника — ${CATALOG[bk.type].one}; бренд — ${bk.brand}; модель — ${getModel()||'не указана'}; проблема — ${problemText()||'не описана'}.${bk.more.length?` Также в этой же заявке: ${bk.more.map(d=>d.device+' ('+(d.problem||'диагностика')+')').join('; ')} — эти устройства уже выбраны, цены по ним учтены в квитанции.`:''}
+Клиент выбрал: техника — ${CATALOG[bk.type].one}; бренд — ${bk.brand}; модель — ${getModel()||'не указана'}; проблема — ${problemText()||'не описана'}.${bk.more.length?`\nВ этой же заявке клиент уже выбрал другие устройства (их услуги и цены уже определены, find_services для них не вызывай): ${bk.more.map((d,i)=>`${i+1}) ${d.device}, проблема — ${d.problem||'не описана'}: ${d.services.length?d.services.map(x=>x.name+' '+rangeText({lo:x.lo,hi:x.hi})).join(', '):'бесплатная диагностика'}`).join('; ')}. Сумма по ним: ${rangeText(sumSvc(bk.more.flatMap(d=>d.services)))}. Текущее устройство — №${bk.more.length+1}. Когда называешь цену и в подтверждении записи, перечисли цену отдельно по каждому устройству (по номерам) и общий «Итого» по всем устройствам вместе.`:''}
 Как работать:
 1. Чтобы назвать цену, вызывай find_services отдельно для каждой проблемы клиента и называй вилку цены, срок и гарантию только из результата; если проблем несколько, назови и общую сумму. Ничего не придумывай. Если ничего не подошло, предложи бесплатную диагностику.
 Цены называй только в двух местах: в ответе на вопрос о цене и в финальном подтверждении записи. В сообщениях про дату, время, имя и телефон цены не повторяй и не пиши «уточнённые цены».
@@ -674,14 +687,14 @@ function localReply(text,act){
   if(act?.k==='contact'||L.stage==='contact'){
     if(act?.k!=='contact'){ showContact(true); addMsg('bot','Введите имя и номер в поля ниже.'); return; }
     L.stage='confirm';
-    addMsg('bot',`${bk.services.length?bk.services.map(x=>x.name).join(', '):'Диагностика'}, ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}, ${bk.contact==='tg'?'связь в Telegram '+bk.tg:'связь по звонку'}.${bk.services.length?' Итого '+rangeText(totalRange(bk.services))+'.':''} Записать?`);
+    { const S=orderSummary(); addMsg('bot',`${S.text}. ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}, ${bk.contact==='tg'?'связь в Telegram '+bk.tg:'связь по звонку'}.${S.tot?' Итого '+S.tot+'.':''} Записать?`); }
     setQR(confirmQR()); return;
   }
   if(L.stage==='name'){ bk.name=text.trim().slice(0,40); L.stage='phone'; addMsg('bot',`${bk.name}, ваш номер телефона?`); return; }
   if(L.stage==='phone'){
     const dg=text.replace(/\D/g,''); if(dg.length<10||dg.length>11){ addMsg('bot','Нужен номер из 10–11 цифр, например +7 900 123-45-67.'); return; }
     bk.phone=text.trim(); L.stage='confirm';
-    addMsg('bot',`${bk.services.length?bk.services.map(x=>x.name).join(', '):'Диагностика'}, ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}.${bk.services.length?' Итого '+rangeText(totalRange(bk.services))+'.':''} Верно?`);
+    { const S=orderSummary(); addMsg('bot',`${S.text}. ${human(bk.date)} в ${bk.time}, ${bk.name}, ${bk.phone}.${S.tot?' Итого '+S.tot+'.':''} Верно?`); }
     setQR(confirmQR()); return;
   }
   if(L.stage==='confirm'&&(act?.k==='ok'||/^(да|ок|подтвер|верно|записыв)/.test(t))){
@@ -704,9 +717,15 @@ function localReply(text,act){
   const found=mergeServices(byIssue,extra).slice(0,4);
   const list=found.length?found:[diagService()];
   bk.services=found; bk.service=list[0]; renderSummary();
+  if(bk.more.length){
+    const all=allDevices(found); const tot=sumSvc(all.flatMap(d=>d.services));
+    const curCard=`<div class="pdev">${all.length}. ${esc(deviceFull())}</div>`+priceCard(list);
+    addMsg('bot',`Стоимость по каждому устройству:`+bk.more.map((d,i)=>devCard(d,i)).join('')+curCard+`<div class="pcard"><div class="prow total"><div><b>Итого за ${all.length} ${plural(all.length,['устройство','устройства','устройств'])}</b></div><em class="total">${tot.hi?rangeText(tot):'Бесплатно'}</em></div></div><p>Точная цена после бесплатной диагностики. Когда удобно прийти?</p>`,true);
+  } else {
   const intro=found.length?`${deviceText()}:`:'Предлагаю бесплатную диагностику:';
   const tot=list.length>1?`<div class="prow total"><div><b>Итого примерно</b></div><em class="total">${rangeText(totalRange(list))}</em></div>`:'';
   addMsg('bot',intro+priceCard(list).replace(/<\/div>$/,tot+'</div>')+'<p>Точная цена после бесплатной диагностики. Когда удобно прийти?</p>',true);
+  }
   L.stage='date'; setQR(dateChips());
 }
 
@@ -923,11 +942,11 @@ function rcCard(x){
     <div class="rc-top"><div><b>${x.num}</b></div><span class="pill ${st===-2?'closed':st<0?'cancel':'s'+st}">${st===-2?'Завершён':st<0?'Отменён':STAGES[st]}</span></div>
     <div class="rc-rows">
       <div><span>${ico('cal')}Приём</span><span>${esc(human(x.date))}, ${x.time}</span></div>
-      <div><span>${ico('device')}Устройство</span><span title="${esc(x.device)}">${esc(String(x.device).replace(/^(Телефон|Ноутбук|Планшет|Консоль|Приставка)\s+/,''))}</span></div>
+      <div><span>${ico('device')}Устройство</span><span title="${esc(x.device)}">${x.devices&&x.devices.length>1?`${x.devices.length} ${plural(x.devices.length,['устройство','устройства','устройств'])}`:esc(String(x.device).replace(/^(Телефон|Ноутбук|Планшет|Консоль|Приставка)\s+/,''))}</span></div>
       <div><span>${ico('phone')}Клиент</span><span title="${esc(x.name)}">${esc(x.name)}, ${maskPhone(x.phone)}</span></div>
     </div>
     <div class="rc-cut"></div>
-    <div class="rc-svc">${(x.services.length?x.services:[{name:'Диагностика',lo:0,hi:0}]).map(s=>`<div><span>${esc(s.name)}</span><span>${rangeText({lo:s.lo,hi:s.hi})}</span></div>`).join('')}</div>
+    <div class="rc-svc">${x.devices&&x.devices.length>1?x.devices.map((d,i)=>`<div class="rc-dev"><span>${i+1}. ${esc(d.device)}</span><span>${d.services.length?rangeText(sumSvc(d.services)):'Бесплатно'}</span></div>`+(d.services.length?d.services:[{name:'Диагностика',lo:0,hi:0}]).map(s=>`<div class="rc-sub"><span>${esc(s.name)}</span><span>${rangeText({lo:s.lo,hi:s.hi})}</span></div>`).join('')).join(''):(x.services.length?x.services:[{name:'Диагностика',lo:0,hi:0}]).map(s=>`<div><span>${esc(s.name)}</span><span>${rangeText({lo:s.lo,hi:s.hi})}</span></div>`).join('')}</div>
     <div class="rc-tot"><span>Итого</span><b>${x.services.length?rangeText(tot):'Бесплатно'}</b></div>
     <div class="rc-act"><button type="button" class="btn sm" data-rc-status="${x.num}">${ico('search')}Статус</button><button type="button" class="btn sm" data-rc-review="${x.num}">${ico('star')}Отзыв</button></div>
     ${!x.demo&&st===0?`<button type="button" class="btn sm rc-cancel-btn" data-rc-cancel="${x.num}">${ico('x')}<span>Отменить запись</span></button>`:''}
